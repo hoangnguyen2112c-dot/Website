@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css"> 
     
     <style>
-        /* CSS Tổng thể (Chắc chắn đã có trong file style.css của bạn) */
+        /* CSS Tổng thể */
         body { background-color: #1a1a1a; color: white; font-family: sans-serif; margin: 0; }
         .main-header { padding: 15px 20px; text-align: center; background-color: #0d47a1; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
         .content-wrapper { display: flex; max-width: 1400px; margin: 0 auto; padding-top: 20px; }
@@ -86,7 +86,15 @@
             border-radius: 4px;
         }
         .main-content > div:not(#landing-view) {
-            display: none; /* Ẩn các giao diện API mặc định */
+            display: none; 
+        }
+        
+        /* Style cho Image Preview */
+        .image-preview-container {
+            border: 1px dashed #555;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            padding: 5px;
         }
     </style>
 </head>
@@ -148,72 +156,11 @@
                             <label for="restore-image-upload">Upload Ảnh</label>
                             <input type="file" id="restore-image-upload" accept="image/*">
                             
+                            <div class="image-preview-container">
+                                <img id="restore-image-preview" src="#" alt="Ảnh xem trước" style="max-width:100%; height:auto; display:none;">
+                            </div>
+                            
                             <label for="restore-prompt-input">Prompt</label>
                             <input type="text" id="restore-prompt-input" value="restore old photo, high quality" placeholder="Ghi chú (Prompt)">
                             
                             <label for="restore-strength-input">Độ mạnh (Strength)</label>
-                            <input type="number" id="restore-strength-input" min="0" max="10" step="0.1" value="4.0" placeholder="Độ mạnh (Strength)">
-
-                            <button id="restore-run-btn">🔥 BẮT ĐẦU (Trừ 1 lượt)</button>
-                        </div>
-                    </div>
-
-                    <div id="output-module">
-                        <h4>🖼️ Ảnh Kết Quả</h4>
-                        <hr>
-                        <h4 id="restore-status-out">Trạng thái xử lý: Đang chờ...</h4>
-                        
-                        <div id="restore-gallery-output" style="text-align: center; margin-top: 20px;">
-                            <p style="color: #bbb;">Ảnh kết quả sẽ hiển thị ở đây sau khi chạy task.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="upscale-app"> 
-                <h2>Nâng Cấp Ảnh (Upscale) AI</h2>
-                <p><a href="#" class="back-to-landing"> &larr; Quay lại trang chủ</a></p>
-                <hr>
-
-                <div id="main-app-content">
-                    <div id="input-module">
-                        <div id="upscale-login-view">
-                            <h4>🔒 Đăng nhập để sử dụng</h4>
-                            <input type="text" id="upscale-username" placeholder="Tài khoản...">
-                            <input type="password" id="upscale-password" placeholder="Mật khẩu...">
-                            <button id="upscale-login-btn">Đăng Nhập</button>
-                            <p id="upscale-login-msg" style="color: yellow;"></p>
-                        </div>
-
-                        <div id="upscale-main-view" style="display:none;">
-                            <p id="upscale-credits-out" style="color: lightgreen; margin-bottom: 20px;"></p>
-                            
-                            <h4>⚙️ Cấu hình nâng cấp (ID 1981)</h4>
-                            
-                            <label for="upscale-image-upload">Upload Ảnh</label>
-                            <input type="file" id="upscale-image-upload" accept="image/*">
-                            
-                            <label for="upscale-prompt-input">Prompt</label>
-                            <input type="text" id="upscale-prompt-input" value="high quality upscale" placeholder="Ghi chú (Prompt)">
-
-                            <button id="upscale-run-btn" style="margin-top: 20px;">🔥 BẮT ĐẦU (Trừ 1 lượt)</button>
-                        </div>
-                    </div>
-
-                    <div id="output-module">
-                        <h4>🖼️ Ảnh Kết Quả</h4>
-                        <hr>
-                        <h4 id="upscale-status-out">Trạng thái xử lý: Đang chờ...</h4>
-                        
-                        <div id="upscale-gallery-output" style="text-align: center; margin-top: 20px;">
-                             <p style="color: #bbb;">Ảnh kết quả sẽ hiển thị ở đây sau khi chạy task.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <script src="script.js"></script> 
-</body>
-</html>
