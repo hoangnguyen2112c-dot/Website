@@ -9,7 +9,7 @@ const RUNNINGHUB_URLS = {
     "status": "https://www.runninghub.ai/task/openapi/status",
     "outputs": "https://www.runninghub.ai/task/openapi/outputs",
     "upload": "https://www.runninghub.ai/task/openapi/upload",
-    // Endpoint fulfill bị loại bỏ logic front-end vì không còn nút download trực tiếp
+    "fulfill": "https://www.runninghub.ai/task/openapi/fulfill_payment" 
 };
 
 // Cấu hình ID Workflow cho từng tính năng
@@ -29,21 +29,24 @@ const UPSCALE_CONFIG = {
 
 
 // =========================================================
-// HÀM MODAL (CHỈ HIỂN THỊ THÔNG BÁO, KHÔNG TẢI FILE) - ĐÃ KHÔI PHỤC
+// HÀM MODAL (CHỈ HIỂN THỊ THÔNG BÁO) - ĐÃ CỐ ĐỊNH LỖI DOM
 // =========================================================
 
-const modal = document.getElementById("imageModal");
-const modalImg = document.getElementById("modalImage");
-const downloadBtn = document.getElementById("downloadButton"); 
-const spanClose = document.getElementsByClassName("close")[0];
-
-spanClose.onclick = function() { modal.style.display = "none"; }
-window.onclick = function(event) { if (event.target == modal) { modal.style.display = "none"; } }
-
 function openContactModal(imgUrl) {
+  // KHỞI TẠO BIẾN MODAL BÊN TRONG HÀM ĐỂ ĐẢM BẢO PHẦN TỬ TỒN TẠI
+  const modal = document.getElementById("imageModal");
+  const modalImg = document.getElementById("modalImage");
+  const downloadBtn = document.getElementById("downloadButton");
+  const spanClose = document.getElementsByClassName("close")[0];
+    
+  if (!modal) return; // Bảo vệ khỏi lỗi nếu Modal bị xóa khỏi HTML
+
   modal.style.display = "block";
   modalImg.src = imgUrl; 
   
+  spanClose.onclick = function() { modal.style.display = "none"; }
+  window.onclick = function(event) { if (event.target == modal) { modal.style.display = "none"; } }
+
   downloadBtn.onclick = () => {
       alert("Vui lòng liên hệ Zalo 0832328262 để thanh toán và nhận ảnh gốc (Phí 50k/tấm).");
       navigator.clipboard.writeText("0832328262").then(() => {
@@ -69,12 +72,10 @@ function setupImagePreview(inputId, previewId) {
             
             if (file) {
                 const reader = new FileReader();
-                
                 reader.onload = function(event) {
                     previewElement.src = event.target.result;
                     previewElement.style.display = 'block'; 
                 };
-                
                 reader.readAsDataURL(file); 
             } else {
                 previewElement.style.display = 'none'; 
@@ -90,8 +91,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const restorationApp = document.getElementById('restoration-app');
     const upscaleApp = document.getElementById('upscale-app');
     
-    document.getElementById('restore-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
-    document.getElementById('upscale-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
+    // Khởi tạo các thông tin UI
+    if (document.getElementById('restore-credits-out')) {
+        document.getElementById('restore-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
+    }
+    if (document.getElementById('upscale-credits-out')) {
+        document.getElementById('upscale-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
+    }
     
     const switchView = (targetApp) => {
         landingView.style.display = 'none';
@@ -105,8 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const restoreBtn = document.getElementById('show-restoration-ui-btn');
     if (restoreBtn) {
         restoreBtn.addEventListener('click', () => {
-            // Ẩn thông báo phí cũ (hiện không còn được sử dụng)
-            // document.getElementById('restore-fulfillment-message').style.display = 'none'; 
+            document.getElementById('restore-fulfillment-message').style.display = 'none'; 
             switchView(restorationApp);
         });
     }
@@ -115,8 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const upscaleBtn = document.getElementById('show-upscale-ui-btn');
     if (upscaleBtn) {
         upscaleBtn.addEventListener('click', () => {
-             // Ẩn thông báo phí cũ (hiện không còn được sử dụng)
-            // document.getElementById('upscale-fulfillment-message').style.display = 'none'; 
+            document.getElementById('upscale-fulfillment-message').style.display = 'none'; 
             switchView(upscaleApp);
         });
     }
@@ -144,7 +148,7 @@ function startTimer(statusOutId) {
         clearInterval(timerInterval);
     }
     
-    let timeRemaining = 4 * 60; // 4 phút = 240 giây
+    let timeRemaining = 4 * 60; 
     const statusOut = document.getElementById(statusOutId);
 
     function updateDisplay() {
@@ -178,13 +182,13 @@ function startTimer(statusOutId) {
 // LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
-function trackStatus(taskId, statusOutId, galleryOutId) { // Đã bỏ fulfillmentMsgId
+function trackStatus(taskId, statusOutId, galleryOutId, fulfillmentMsgId) {
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
-    // const fulfillmentMsg = document.getElementById(fulfillmentMsgId); // Không còn dùng
+    const fulfillmentMsg = document.getElementById(fulfillmentMsgId);
     
     galleryOut.innerHTML = 'Đang chờ kết quả...';
-    // fulfillmentMsg.style.display = 'none'; // Không còn dùng
+    fulfillmentMsg.style.display = 'none'; 
 
     let intervalId = window.lastTaskId;
     if (intervalId) clearInterval(intervalId);
@@ -233,17 +237,20 @@ function trackStatus(taskId, statusOutId, galleryOutId) { // Đã bỏ fulfillme
                             img.src = item.fileUrl;
                             img.alt = "Ảnh kết quả";
                             
-                            // ⚠️ GÁN LẠI LOGIC MỞ MODAL KHI CLICK VÀO ẢNH TRONG GALLERY
+                            // Gán logic mở Modal liên hệ
                             container.onclick = () => openContactModal(item.fileUrl); 
 
                             container.appendChild(img);
                             galleryOut.appendChild(container);
                         }
                     });
-                     // ⚠️ TỰ ĐỘNG MỞ MODAL VỚI ẢNH ĐẦU TIÊN KHI CÓ KẾT QUẢ
+                     // Tự động mở modal với ảnh đầu tiên khi có kết quả
                     if (outputData.data.length > 0) {
                         openContactModal(outputData.data[0].fileUrl);
                     }
+                    // Hiển thị thông báo phí
+                    // fulfillmentMsg.style.display = 'block'; // CHỈ HIỂN THỊ TRONG MODAL THEO YÊU CẦU
+
                 } else {
                     statusOut.textContent = `Lỗi lấy kết quả: ${outputData.msg}`;
                 }
@@ -273,7 +280,6 @@ async function runWorkflowTask(config, viewIds) {
         imageUploadId, 
         promptInputId, strengthInputId, statusOutId, 
         galleryOutId
-        // fulfillmentMsgId // Không còn dùng ở đây
     } = viewIds;
 
     const prompt = document.getElementById(promptInputId).value;
@@ -301,4 +307,84 @@ async function runWorkflowTask(config, viewIds) {
             nodeInfoList.push({ "nodeId": config.image_node_id, "fieldName": "image", "fieldValue": remoteFileName });
         }
 
-        statusOut.textContent =
+        statusOut.textContent = "Đang khởi tạo tác vụ xử lý...";
+
+        const payload = {
+            "apiKey": API_KEY, 
+            "workflowId": config.workflow_id,
+            "nodeInfoList": nodeInfoList
+        };
+
+        const res = await fetch(RUNNINGHUB_URLS["create"], {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.code !== 0) {
+             throw new Error(`Lỗi khởi tạo tác vụ: ${data.msg || res.statusText}`);
+        }
+        
+        const taskId = data.data.taskId;
+        trackStatus(taskId, statusOutId, galleryOutId, viewIds.fulfillmentMsgId);
+
+    } catch (e) {
+        statusOut.textContent = `Lỗi: ${e.message}`;
+    }
+}
+
+
+async function uploadImageToRunningHub(imgFile) {
+    const statusOut = document.getElementById('restore-status-out') || document.getElementById('upscale-status-out');
+    
+    const formData = new FormData();
+    formData.append('apiKey', API_KEY); 
+    formData.append('file', imgFile, imgFile.name);
+    formData.append('fileType', 'image'); 
+
+    statusOut.textContent = "Đang tải ảnh lên hệ thống...";
+
+    try {
+        const upRes = await fetch(RUNNINGHUB_URLS["upload"], {
+            method: 'POST',
+            body: formData 
+        });
+        
+        const resData = await upRes.json();
+        
+        if (resData.code !== 0) {
+            throw new Error(`Tải ảnh thất bại: ${resData.msg || "Lỗi không xác định."}`);
+        }
+        
+        return resData.data.fileName; 
+
+    } catch (e) {
+        statusOut.textContent = `Lỗi Tải ảnh: ${e.message}`;
+        throw new Error(e.message);
+    }
+}
+
+// =========================================================
+// KÍCH HOẠT EVENTS
+// =========================================================
+
+const RESTORE_VIEW_IDS = {
+    imageUploadId: 'restore-image-upload', promptInputId: 'restore-prompt-input', strengthInputId: 'restore-strength-input',
+    statusOutId: 'restore-status-out', galleryOutId: 'restore-gallery-output',
+    fulfillmentMsgId: 'restore-fulfillment-message'
+};
+
+document.getElementById('restore-run-btn').addEventListener('click', () => {
+    runWorkflowTask(RESTORATION_CONFIG, RESTORE_VIEW_IDS);
+});
+
+const UPSCALE_VIEW_IDS = {
+    imageUploadId: 'upscale-image-upload', promptInputId: 'upscale-prompt-input', strengthInputId: 'upscale-strength-input',
+    statusOutId: 'upscale-status-out', galleryOutId: 'upscale-gallery-output',
+    fulfillmentMsgId: 'upscale-fulfillment-message'
+};
+
+document.getElementById('upscale-run-btn').addEventListener('click', () => {
+    runWorkflowTask(UPSCALE_CONFIG, UPSCALE_VIEW_IDS);
+});
