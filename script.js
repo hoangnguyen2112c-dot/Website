@@ -22,7 +22,7 @@ const RESTORATION_CONFIG = {
 
 const UPSCALE_CONFIG = {
     workflow_id: "1981382064639492097",
-    prompt_node_id: "45",
+    prompt_node_id: "164",
     image_node_id: "59",
     strength_node_id: null, 
 };
