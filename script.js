@@ -1,9 +1,18 @@
 // =========================================================
-// CẤU HÌNH API
+// CẤU HÌNH CHUNG & BYPASS LOGIN
 // =========================================================
 const API_GATEWAY_URL = "https://runninghub-api-gateway.onrender.com";
 
-// Tách biệt ID Workflow
+// Thay thế bằng tài khoản và mật khẩu hợp lệ của bạn để test API
+const TEST_USERNAME = "your_test_username"; 
+const TEST_PASSWORD = "your_test_password"; 
+
+// Biến toàn cục để lưu trữ credentials khi bypass
+let TEMP_USERNAME = TEST_USERNAME; 
+let TEMP_PASSWORD = TEST_PASSWORD;
+let TEMP_CREDITS = 99; // Giả sử credits test
+
+// Cấu hình ID Workflow cho từng tính năng
 const RESTORATION_CONFIG = {
     workflow_id: "1984294242724036609",
     prompt_id: "416",
@@ -20,11 +29,6 @@ const UPSCALE_CONFIG = {
     gpu_mode: "Standard (24G)"
 };
 
-// Khai báo biến toàn cục để lưu trữ tài khoản/mật khẩu tạm thời
-let TEMP_USERNAME = ""; 
-let TEMP_PASSWORD = "";
-let TEMP_CREDITS = 0;
-
 
 // =========================================================
 // LOGIC CHUYỂN ĐỔI GIAO DIỆN VÀ BYPASS LOGIN
@@ -32,21 +36,10 @@ let TEMP_CREDITS = 0;
 
 // Hàm bypass Login (TẠM THỜI)
 function bypassLogin(appId) {
-    // ⚠️ ĐẶT TÀI KHOẢN VÀ MẬT KHẨU CỨNG CHO MỤC ĐÍCH TEST
-    const TEST_USERNAME = "test_user_api"; // THAY BẰNG USERNAME HỢP LỆ CỦA BẠN
-    const TEST_PASSWORD = "test_password"; // THAY BẰNG MẬT KHẨU HỢP LỆ CỦA BẠN
-
-    // Lưu credentials tạm thời
-    TEMP_USERNAME = TEST_USERNAME;
-    TEMP_PASSWORD = TEST_PASSWORD;
-    TEMP_CREDITS = 99; // Giả sử còn 99 lượt test
-
-    // Xác định ID View dựa trên appId
     const loginViewId = appId === '#restoration-app' ? 'restore-login-view' : 'upscale-login-view';
     const mainViewId = appId === '#restoration-app' ? 'restore-main-view' : 'upscale-main-view';
     const creditsOutId = appId === '#restoration-app' ? 'restore-credits-out' : 'upscale-credits-out';
 
-    // Ẩn Login, Hiện Main View
     const loginView = document.getElementById(loginViewId);
     const mainView = document.getElementById(mainViewId);
     const creditsOut = document.getElementById(creditsOutId);
@@ -66,10 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Hàm chung để chuyển đổi view
     const switchView = (targetApp) => {
+        // Ẩn tất cả views
         landingView.style.display = 'none';
         restorationApp.style.display = 'none';
         upscaleApp.style.display = 'none';
         
+        // Hiện view mục tiêu
         targetApp.style.display = 'block';
         
         // --- CHẠY BYPASS LOGIN KHI CHUYỂN SANG GIAO DIỆN THỰC THI ---
@@ -101,17 +96,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 // =========================================================
-// LOGIC API
+// LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
-// Hàm Login chung (Tạm thời vô hiệu hóa)
+// Hàm Login chung (Đã bị Bypass)
 async function apiLogin(usernameId, passwordId, msgId, loginViewId, mainViewId, creditsOutId) {
-    // Không cần thực thi logic API Login khi dùng Bypass
     document.getElementById(msgId).textContent = "Chức năng đăng nhập đang bị Bypass.";
     bypassLogin(`#${document.getElementById(loginViewId).parentElement.id}`);
 }
 
-// Hàm Theo dõi chung (Không thay đổi)
+
+// Hàm Theo dõi chung
 function trackStatus(taskId, statusOutId, galleryOutId) {
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
@@ -121,7 +116,6 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
     if (intervalId) clearInterval(intervalId);
 
     intervalId = setInterval(async () => {
-        // ... (Giữ nguyên logic kiểm tra trạng thái)
         try {
             const res = await fetch(`${API_GATEWAY_URL}/api/v1/task/status/${taskId}`);
             const data = await res.json();
@@ -162,7 +156,7 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 }
 
 
-// Hàm Chạy Task chung (Đã cập nhật để dùng TEMP_USERNAME/PASSWORD)
+// Hàm Chạy Task chung
 async function runWorkflowTask(config, viewIds) {
     const { 
         imageUploadId, 
@@ -181,12 +175,13 @@ async function runWorkflowTask(config, viewIds) {
     const statusOut = document.getElementById(statusOutId);
     
     if (!imgFile) return alert("Vui lòng chọn ảnh!");
+    if (!username || !password) return alert("Vui lòng thiết lập TEMP_USERNAME và TEMP_PASSWORD trong script.js");
+
 
     statusOut.textContent = "Đang upload ảnh...";
 
     try {
         // --- BƯỚC 1: UPLOAD ẢNH ---
-        // ... (Giữ nguyên logic Upload)
         const formData = new FormData();
         formData.append('file', imgFile, imgFile.name);
         formData.append('fileType', 'image');
@@ -206,8 +201,8 @@ async function runWorkflowTask(config, viewIds) {
         statusOut.textContent = "Đang xử lý (Sẽ trừ 1 lượt)...";
 
         const payload = {
-            username, // Dùng TEMP_USERNAME
-            password, // Dùng TEMP_PASSWORD
+            username, 
+            password, 
             "workflow_id": config.workflow_id,
             "prompt_id": config.prompt_id,
             "image_id": config.image_id,
@@ -239,7 +234,7 @@ async function runWorkflowTask(config, viewIds) {
 
 
 // =========================================================
-// KÍCH HOẠT LOGIC CHO RESTORATION VÀ UPSCALE
+// KÍCH HOẠT EVENTS
 // =========================================================
 
 const RESTORE_VIEW_IDS = {
