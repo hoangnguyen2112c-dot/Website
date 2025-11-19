@@ -1,0 +1,113 @@
+/* Thiết lập cơ bản và Dark Theme */
+body {
+    background-color: #121212; /* Màu nền tối */
+    color: #e0e0e0; /* Màu chữ sáng */
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.main-header {
+    background-image: linear-gradient(to right, #2c3e50, #4a69bd); /* Màu Gradient Header */
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.main-header h1 {
+    margin: 0;
+    color: white;
+}
+
+/* Bố cục chính: Sidebar và Content */
+.content-wrapper {
+    display: flex;
+    min-height: calc(100vh - 70px); 
+}
+
+.sidebar {
+    width: 200px;
+    background-color: #1f1f1f;
+    padding: 20px 0;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar a {
+    color: #cccccc;
+    text-decoration: none;
+    padding: 10px 20px;
+    margin: 5px 0;
+    transition: background-color 0.3s;
+}
+
+.sidebar a.active, .sidebar a:hover {
+    background-color: #4a69bd; /* Màu nhấn cho tab active/hover */
+    color: white;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 30px;
+}
+
+/* Bố cục Grid cho 2 Tác vụ */
+.tile-grid {
+    display: grid;
+    /* Chỉ định 2 cột bằng nhau */
+    grid-template-columns: 1fr 1fr; 
+    gap: 30px;
+    max-width: 1200px; /* Giới hạn chiều rộng để dễ nhìn */
+    margin: 0 auto;
+}
+
+.tile {
+    background-color: #1f1f1f;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+
+.tile:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.7);
+}
+
+.tile img {
+    width: 100%;
+    height: 300px; /* Chiều cao lớn hơn để nổi bật */
+    object-fit: cover;
+}
+
+.tile-info {
+    padding: 15px;
+}
+
+.tile-info h3 {
+    margin-top: 0;
+    color: #00bcd4; /* Màu nhấn: Xanh ngọc */
+}
+
+.tile-info button {
+    background-color: #4a69bd;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 4px;
+    margin-top: 15px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    width: 100%; /* Button chiếm toàn bộ chiều rộng */
+}
+
+.tile-info button:hover {
+    background-color: #3b5391;
+}
+
+/* Màu nhấn riêng cho từng tác vụ */
+.restoration-tile .tile-info h3 { color: #ff9800; /* Cam */ }
+.upscale-tile .tile-info h3 { color: #2196f3; /* Xanh dương */ }
