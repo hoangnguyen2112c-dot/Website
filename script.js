@@ -9,7 +9,7 @@ const RUNNINGHUB_URLS = {
     "status": "https://www.runninghub.ai/task/openapi/status",
     "outputs": "https://www.runninghub.ai/task/openapi/outputs",
     "upload": "https://www.runninghub.ai/task/openapi/upload",
-    // Endpoint fulfill bị loại bỏ logic front-end vì không còn nút download
+    // Endpoint fulfill bị loại bỏ logic front-end vì không còn nút download trực tiếp
 };
 
 // Cấu hình ID Workflow cho từng tính năng
@@ -26,6 +26,33 @@ const UPSCALE_CONFIG = {
     image_node_id: "59",
     strength_node_id: null, 
 };
+
+
+// =========================================================
+// HÀM MODAL (CHỈ HIỂN THỊ THÔNG BÁO, KHÔNG TẢI FILE) - ĐÃ KHÔI PHỤC
+// =========================================================
+
+const modal = document.getElementById("imageModal");
+const modalImg = document.getElementById("modalImage");
+const downloadBtn = document.getElementById("downloadButton"); 
+const spanClose = document.getElementsByClassName("close")[0];
+
+spanClose.onclick = function() { modal.style.display = "none"; }
+window.onclick = function(event) { if (event.target == modal) { modal.style.display = "none"; } }
+
+function openContactModal(imgUrl) {
+  modal.style.display = "block";
+  modalImg.src = imgUrl; 
+  
+  downloadBtn.onclick = () => {
+      alert("Vui lòng liên hệ Zalo 0832328262 để thanh toán và nhận ảnh gốc (Phí 50k/tấm).");
+      navigator.clipboard.writeText("0832328262").then(() => {
+          console.log("Zalo number copied to clipboard!");
+      }).catch(err => {
+          console.error("Could not copy Zalo number: ", err);
+      });
+  };
+}
 
 
 // =========================================================
@@ -78,8 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const restoreBtn = document.getElementById('show-restoration-ui-btn');
     if (restoreBtn) {
         restoreBtn.addEventListener('click', () => {
-            // Ẩn thông báo phí cũ khi bắt đầu tác vụ mới
-            document.getElementById('restore-fulfillment-message').style.display = 'none'; 
+            // Ẩn thông báo phí cũ (hiện không còn được sử dụng)
+            // document.getElementById('restore-fulfillment-message').style.display = 'none'; 
             switchView(restorationApp);
         });
     }
@@ -88,8 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const upscaleBtn = document.getElementById('show-upscale-ui-btn');
     if (upscaleBtn) {
         upscaleBtn.addEventListener('click', () => {
-             // Ẩn thông báo phí cũ khi bắt đầu tác vụ mới
-            document.getElementById('upscale-fulfillment-message').style.display = 'none'; 
+             // Ẩn thông báo phí cũ (hiện không còn được sử dụng)
+            // document.getElementById('upscale-fulfillment-message').style.display = 'none'; 
             switchView(upscaleApp);
         });
     }
@@ -151,13 +178,13 @@ function startTimer(statusOutId) {
 // LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
-function trackStatus(taskId, statusOutId, galleryOutId, fulfillmentMsgId) {
+function trackStatus(taskId, statusOutId, galleryOutId) { // Đã bỏ fulfillmentMsgId
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
-    const fulfillmentMsg = document.getElementById(fulfillmentMsgId);
+    // const fulfillmentMsg = document.getElementById(fulfillmentMsgId); // Không còn dùng
     
     galleryOut.innerHTML = 'Đang chờ kết quả...';
-    fulfillmentMsg.style.display = 'none'; // Đảm bảo thông báo phí ẩn
+    // fulfillmentMsg.style.display = 'none'; // Không còn dùng
 
     let intervalId = window.lastTaskId;
     if (intervalId) clearInterval(intervalId);
@@ -206,14 +233,17 @@ function trackStatus(taskId, statusOutId, galleryOutId, fulfillmentMsgId) {
                             img.src = item.fileUrl;
                             img.alt = "Ảnh kết quả";
                             
-                            // Không gán onclick
+                            // ⚠️ GÁN LẠI LOGIC MỞ MODAL KHI CLICK VÀO ẢNH TRONG GALLERY
+                            container.onclick = () => openContactModal(item.fileUrl); 
+
                             container.appendChild(img);
                             galleryOut.appendChild(container);
                         }
                     });
-                     // ⚠️ HIỂN THỊ THÔNG BÁO THANH TOÁN KHI CÓ KẾT QUẢ
-                    fulfillmentMsg.style.display = 'block';
-
+                     // ⚠️ TỰ ĐỘNG MỞ MODAL VỚI ẢNH ĐẦU TIÊN KHI CÓ KẾT QUẢ
+                    if (outputData.data.length > 0) {
+                        openContactModal(outputData.data[0].fileUrl);
+                    }
                 } else {
                     statusOut.textContent = `Lỗi lấy kết quả: ${outputData.msg}`;
                 }
@@ -242,8 +272,8 @@ async function runWorkflowTask(config, viewIds) {
     const { 
         imageUploadId, 
         promptInputId, strengthInputId, statusOutId, 
-        galleryOutId,
-        fulfillmentMsgId // Lấy ID thông báo phí
+        galleryOutId
+        // fulfillmentMsgId // Không còn dùng ở đây
     } = viewIds;
 
     const prompt = document.getElementById(promptInputId).value;
@@ -271,85 +301,4 @@ async function runWorkflowTask(config, viewIds) {
             nodeInfoList.push({ "nodeId": config.image_node_id, "fieldName": "image", "fieldValue": remoteFileName });
         }
 
-        statusOut.textContent = "Đang khởi tạo tác vụ xử lý...";
-
-        const payload = {
-            "apiKey": API_KEY, 
-            "workflowId": config.workflow_id,
-            "nodeInfoList": nodeInfoList
-        };
-
-        const res = await fetch(RUNNINGHUB_URLS["create"], {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-        if (data.code !== 0) {
-             throw new Error(`Lỗi khởi tạo tác vụ: ${data.msg || res.statusText}`);
-        }
-        
-        const taskId = data.data.taskId;
-        // ⚠️ Truyền ID thông báo phí vào hàm trackStatus
-        trackStatus(taskId, statusOutId, galleryOutId, fulfillmentMsgId);
-
-    } catch (e) {
-        statusOut.textContent = `Lỗi: ${e.message}`;
-    }
-}
-
-
-async function uploadImageToRunningHub(imgFile) {
-    const statusOut = document.getElementById('restore-status-out') || document.getElementById('upscale-status-out');
-    
-    const formData = new FormData();
-    formData.append('apiKey', API_KEY); 
-    formData.append('file', imgFile, imgFile.name);
-    formData.append('fileType', 'image'); 
-
-    statusOut.textContent = "Đang tải ảnh lên hệ thống...";
-
-    try {
-        const upRes = await fetch(RUNNINGHUB_URLS["upload"], {
-            method: 'POST',
-            body: formData 
-        });
-        
-        const resData = await upRes.json();
-        
-        if (resData.code !== 0) {
-            throw new Error(`Tải ảnh thất bại: ${resData.msg || "Lỗi không xác định."}`);
-        }
-        
-        return resData.data.fileName; 
-
-    } catch (e) {
-        statusOut.textContent = `Lỗi Tải ảnh: ${e.message}`;
-        throw new Error(e.message);
-    }
-}
-
-// =========================================================
-// KÍCH HOẠT EVENTS
-// =========================================================
-
-const RESTORE_VIEW_IDS = {
-    imageUploadId: 'restore-image-upload', promptInputId: 'restore-prompt-input', strengthInputId: 'restore-strength-input',
-    statusOutId: 'restore-status-out', galleryOutId: 'restore-gallery-output',
-    fulfillmentMsgId: 'restore-fulfillment-message'
-};
-
-document.getElementById('restore-run-btn').addEventListener('click', () => {
-    runWorkflowTask(RESTORATION_CONFIG, RESTORE_VIEW_IDS);
-});
-
-const UPSCALE_VIEW_IDS = {
-    imageUploadId: 'upscale-image-upload', promptInputId: 'upscale-prompt-input', strengthInputId: 'upscale-strength-input',
-    statusOutId: 'upscale-status-out', galleryOutId: 'upscale-gallery-output',
-    fulfillmentMsgId: 'upscale-fulfillment-message'
-};
-
-document.getElementById('upscale-run-btn').addEventListener('click', () => {
-    runWorkflowTask(UPSCALE_CONFIG, UPSCALE_VIEW_IDS);
-});
+        statusOut.textContent =
