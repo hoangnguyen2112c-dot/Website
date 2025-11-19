@@ -9,7 +9,7 @@ const RUNNINGHUB_URLS = {
     "status": "https://www.runninghub.ai/task/openapi/status",
     "outputs": "https://www.runninghub.ai/task/openapi/outputs",
     "upload": "https://www.runninghub.ai/task/openapi/upload",
-    "fulfill": "https://www.runninghub.ai/task/openapi/fulfill_payment" 
+    // Endpoint fulfill bị loại bỏ logic front-end vì không còn nút download
 };
 
 // Cấu hình ID Workflow cho từng tính năng
@@ -29,33 +29,6 @@ const UPSCALE_CONFIG = {
 
 
 // =========================================================
-// HÀM MODAL (CHỈ HIỂN THỊ THÔNG BÁO, KHÔNG TẢI FILE)
-// =========================================================
-
-const modal = document.getElementById("imageModal");
-const modalImg = document.getElementById("modalImage");
-const downloadBtn = document.getElementById("downloadButton"); 
-const spanClose = document.getElementsByClassName("close")[0];
-
-spanClose.onclick = function() { modal.style.display = "none"; }
-window.onclick = function(event) { if (event.target == modal) { modal.style.display = "none"; } }
-
-function openContactModal(imgUrl) {
-  modal.style.display = "block";
-  modalImg.src = imgUrl; 
-  
-  downloadBtn.onclick = () => {
-      alert("Vui lòng liên hệ Zalo 0832328262 để thanh toán và nhận ảnh gốc.");
-      navigator.clipboard.writeText("0832328262").then(() => {
-          console.log("Zalo number copied to clipboard!");
-      }).catch(err => {
-          console.error("Could not copy Zalo number: ", err);
-      });
-  };
-}
-
-
-// =========================================================
 // HÀM XEM TRƯỚC ẢNH & LOGIC CHUYỂN ĐỔI GIAO DIỆN
 // =========================================================
 
@@ -69,10 +42,12 @@ function setupImagePreview(inputId, previewId) {
             
             if (file) {
                 const reader = new FileReader();
+                
                 reader.onload = function(event) {
                     previewElement.src = event.target.result;
                     previewElement.style.display = 'block'; 
                 };
+                
                 reader.readAsDataURL(file); 
             } else {
                 previewElement.style.display = 'none'; 
@@ -88,15 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const restorationApp = document.getElementById('restoration-app');
     const upscaleApp = document.getElementById('upscale-app');
     
-    // Khởi tạo các thông tin UI
-    if (document.getElementById('restore-credits-out')) {
-        document.getElementById('restore-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
-    }
-    if (document.getElementById('upscale-credits-out')) {
-        document.getElementById('upscale-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
-    }
+    document.getElementById('restore-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
+    document.getElementById('upscale-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
     
-    // Logic chuyển đổi View chính
     const switchView = (targetApp) => {
         landingView.style.display = 'none';
         restorationApp.style.display = 'none';
@@ -109,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const restoreBtn = document.getElementById('show-restoration-ui-btn');
     if (restoreBtn) {
         restoreBtn.addEventListener('click', () => {
+            // Ẩn thông báo phí cũ khi bắt đầu tác vụ mới
+            document.getElementById('restore-fulfillment-message').style.display = 'none'; 
             switchView(restorationApp);
         });
     }
@@ -117,11 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const upscaleBtn = document.getElementById('show-upscale-ui-btn');
     if (upscaleBtn) {
         upscaleBtn.addEventListener('click', () => {
+             // Ẩn thông báo phí cũ khi bắt đầu tác vụ mới
+            document.getElementById('upscale-fulfillment-message').style.display = 'none'; 
             switchView(upscaleApp);
         });
     }
     
-    // Gắn sự kiện click cho nút Quay lại trang chủ
     document.querySelectorAll('.back-to-landing').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -129,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Kích hoạt Image Preview
     setupImagePreview('restore-image-upload', 'restore-image-preview');
     setupImagePreview('upscale-image-upload', 'upscale-image-preview');
 });
@@ -180,12 +151,14 @@ function startTimer(statusOutId) {
 // LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
-function trackStatus(taskId, statusOutId, galleryOutId) {
+function trackStatus(taskId, statusOutId, galleryOutId, fulfillmentMsgId) {
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
+    const fulfillmentMsg = document.getElementById(fulfillmentMsgId);
     
     galleryOut.innerHTML = 'Đang chờ kết quả...';
-    
+    fulfillmentMsg.style.display = 'none'; // Đảm bảo thông báo phí ẩn
+
     let intervalId = window.lastTaskId;
     if (intervalId) clearInterval(intervalId);
 
@@ -233,17 +206,14 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
                             img.src = item.fileUrl;
                             img.alt = "Ảnh kết quả";
                             
-                            // ⚠️ GỌI HÀM MỞ MODAL LIÊN HỆ KHI CLICK VÀO ẢNH
-                            container.onclick = () => openContactModal(item.fileUrl);
-
+                            // Không gán onclick
                             container.appendChild(img);
                             galleryOut.appendChild(container);
                         }
                     });
-                     // Tự động mở modal với ảnh đầu tiên sau khi load xong
-                    if (outputData.data.length > 0) {
-                        openContactModal(outputData.data[0].fileUrl);
-                    }
+                     // ⚠️ HIỂN THỊ THÔNG BÁO THANH TOÁN KHI CÓ KẾT QUẢ
+                    fulfillmentMsg.style.display = 'block';
+
                 } else {
                     statusOut.textContent = `Lỗi lấy kết quả: ${outputData.msg}`;
                 }
@@ -272,7 +242,8 @@ async function runWorkflowTask(config, viewIds) {
     const { 
         imageUploadId, 
         promptInputId, strengthInputId, statusOutId, 
-        galleryOutId 
+        galleryOutId,
+        fulfillmentMsgId // Lấy ID thông báo phí
     } = viewIds;
 
     const prompt = document.getElementById(promptInputId).value;
@@ -320,7 +291,8 @@ async function runWorkflowTask(config, viewIds) {
         }
         
         const taskId = data.data.taskId;
-        trackStatus(taskId, statusOutId, galleryOutId);
+        // ⚠️ Truyền ID thông báo phí vào hàm trackStatus
+        trackStatus(taskId, statusOutId, galleryOutId, fulfillmentMsgId);
 
     } catch (e) {
         statusOut.textContent = `Lỗi: ${e.message}`;
@@ -364,7 +336,8 @@ async function uploadImageToRunningHub(imgFile) {
 
 const RESTORE_VIEW_IDS = {
     imageUploadId: 'restore-image-upload', promptInputId: 'restore-prompt-input', strengthInputId: 'restore-strength-input',
-    statusOutId: 'restore-status-out', galleryOutId: 'restore-gallery-output'
+    statusOutId: 'restore-status-out', galleryOutId: 'restore-gallery-output',
+    fulfillmentMsgId: 'restore-fulfillment-message'
 };
 
 document.getElementById('restore-run-btn').addEventListener('click', () => {
@@ -373,7 +346,8 @@ document.getElementById('restore-run-btn').addEventListener('click', () => {
 
 const UPSCALE_VIEW_IDS = {
     imageUploadId: 'upscale-image-upload', promptInputId: 'upscale-prompt-input', strengthInputId: 'upscale-strength-input',
-    statusOutId: 'upscale-status-out', galleryOutId: 'upscale-gallery-output'
+    statusOutId: 'upscale-status-out', galleryOutId: 'upscale-gallery-output',
+    fulfillmentMsgId: 'upscale-fulfillment-message'
 };
 
 document.getElementById('upscale-run-btn').addEventListener('click', () => {
