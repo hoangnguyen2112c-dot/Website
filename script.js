@@ -5,7 +5,7 @@ const API_GATEWAY_URL = "https://runninghub-api-gateway.onrender.com";
 
 // ⚠️ CẤU HÌNH API KEY CỦA BẠN (Sử dụng API Key thay cho mật khẩu)
 const TEST_USERNAME = "API_User_Key"; // Tên người dùng chung cho authentication bằng key
-const TEST_PASSWORD = "69ba75ff24924a69a7944c6d8118e0be"; // KHÓA API CỦA BẠN
+const TEST_PASSWORD = "69ba75ff24924a69a7944c6d8118e0be"; // KHÓA API CỦA BẠN: RUNNINGHUB_API_KEY
 
 let TEMP_USERNAME = TEST_USERNAME; 
 let TEMP_PASSWORD = TEST_PASSWORD;
@@ -73,8 +73,10 @@ function bypassLogin(appId) {
     const creditsOut = document.getElementById(creditsOutId);
 
     if (loginView && mainView && creditsOut) {
-        loginView.style.display = 'none';
-        mainView.style.display = 'block';
+        // ẨN LOGIN VIEW
+        loginView.style.display = 'none'; 
+        // HIỆN MAIN VIEW
+        mainView.style.display = 'block'; 
         creditsOut.textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
     }
 }
@@ -124,8 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
+// HÀM LOGIN ĐÃ BỊ LOẠI BỎ (chỉ còn lại hàm placeholder)
 async function apiLogin(usernameId, passwordId, msgId, loginViewId, mainViewId, creditsOutId) {
-    document.getElementById(msgId).textContent = "Chức năng đăng nhập đang bị Bypass.";
+    document.getElementById(msgId).textContent = "Đã bỏ qua màn hình đăng nhập.";
     bypassLogin(`#${document.getElementById(loginViewId).parentElement.id}`);
 }
 
@@ -187,7 +190,7 @@ async function runWorkflowTask(config, viewIds) {
     } = viewIds;
 
     const username = TEMP_USERNAME;
-    const password = TEMP_PASSWORD;
+    const password = TEMP_PASSWORD; // Đây là API Key của bạn
 
     const prompt = document.getElementById(promptInputId).value;
     const strengthInput = document.getElementById(strengthInputId);
@@ -196,12 +199,12 @@ async function runWorkflowTask(config, viewIds) {
     const statusOut = document.getElementById(statusOutId);
     
     if (!imgFile) return alert("Vui lòng chọn ảnh!");
-    if (!username || !password || username === "your_test_username") return alert("Lỗi cấu hình: Vui lòng thiết lập TEST_USERNAME và TEST_PASSWORD trong script.js");
+    if (!username || !password || password === "your_test_password") return alert("Lỗi cấu hình: Vui lòng kiểm tra TEMP_PASSWORD (API Key) trong script.js");
 
     statusOut.textContent = "Đang upload ảnh...";
 
     try {
-        // --- BƯỚC 1: UPLOAD ẢNH ---
+        // --- BƯỚC 1: UPLOAD ẢNH (Gửi API Key qua header/payload tùy thuộc API Gateway) ---
         const formData = new FormData();
         formData.append('file', imgFile, imgFile.name);
         formData.append('fileType', 'image');
@@ -222,7 +225,7 @@ async function runWorkflowTask(config, viewIds) {
 
         const payload = {
             username, 
-            password, 
+            password, // Truyền API Key vào trường password
             "workflow_id": config.workflow_id,
             "prompt_id": config.prompt_id,
             "image_id": config.image_id,
