@@ -3,14 +3,13 @@
 // =========================================================
 const API_GATEWAY_URL = "https://runninghub-api-gateway.onrender.com";
 
-// Thay thế bằng tài khoản và mật khẩu hợp lệ của bạn để test API
+// ⚠️ CẤU HÌNH TEST: Thay thế bằng tài khoản và mật khẩu hợp lệ của bạn!
 const TEST_USERNAME = "your_test_username"; 
 const TEST_PASSWORD = "your_test_password"; 
 
-// Biến toàn cục để lưu trữ credentials khi bypass
 let TEMP_USERNAME = TEST_USERNAME; 
 let TEMP_PASSWORD = TEST_PASSWORD;
-let TEMP_CREDITS = 99; // Giả sử credits test
+let TEMP_CREDITS = 99; 
 
 // Cấu hình ID Workflow cho từng tính năng
 const RESTORATION_CONFIG = {
@@ -31,10 +30,39 @@ const UPSCALE_CONFIG = {
 
 
 // =========================================================
+// HÀM XEM TRƯỚC ẢNH
+// =========================================================
+
+function setupImagePreview(inputId, previewId) {
+    const inputElement = document.getElementById(inputId);
+    const previewElement = document.getElementById(previewId);
+
+    if (inputElement && previewElement) {
+        inputElement.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    previewElement.src = event.target.result;
+                    previewElement.style.display = 'block'; // Hiện ảnh
+                };
+                
+                reader.readAsDataURL(file); // Đọc file dưới dạng Data URL
+            } else {
+                previewElement.style.display = 'none'; // Ẩn nếu không có file
+                previewElement.src = '#';
+            }
+        });
+    }
+}
+
+
+// =========================================================
 // LOGIC CHUYỂN ĐỔI GIAO DIỆN VÀ BYPASS LOGIN
 // =========================================================
 
-// Hàm bypass Login (TẠM THỜI)
 function bypassLogin(appId) {
     const loginViewId = appId === '#restoration-app' ? 'restore-login-view' : 'upscale-login-view';
     const mainViewId = appId === '#restoration-app' ? 'restore-main-view' : 'upscale-main-view';
@@ -57,17 +85,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const restorationApp = document.getElementById('restoration-app');
     const upscaleApp = document.getElementById('upscale-app');
     
-    // Hàm chung để chuyển đổi view
     const switchView = (targetApp) => {
-        // Ẩn tất cả views
         landingView.style.display = 'none';
         restorationApp.style.display = 'none';
         upscaleApp.style.display = 'none';
         
-        // Hiện view mục tiêu
         targetApp.style.display = 'block';
         
-        // --- CHẠY BYPASS LOGIN KHI CHUYỂN SANG GIAO DIỆN THỰC THI ---
         if (targetApp.id === 'restoration-app') {
             bypassLogin('#restoration-app');
         } else if (targetApp.id === 'upscale-app') {
@@ -75,23 +99,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Kích hoạt giao diện Restoration
     document.getElementById('show-restoration-ui-btn').addEventListener('click', () => {
         switchView(restorationApp);
     });
 
-    // Kích hoạt giao diện Upscale
     document.getElementById('show-upscale-ui-btn').addEventListener('click', () => {
         switchView(upscaleApp);
     });
     
-    // Nút Quay Lại
     document.querySelectorAll('.back-to-landing').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             switchView(landingView);
         });
     });
+
+    // --- KÍCH HOẠT PREVIEW ẢNH ---
+    setupImagePreview('restore-image-upload', 'restore-image-preview');
+    setupImagePreview('upscale-image-upload', 'upscale-image-preview');
 });
 
 
@@ -99,14 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
-// Hàm Login chung (Đã bị Bypass)
 async function apiLogin(usernameId, passwordId, msgId, loginViewId, mainViewId, creditsOutId) {
     document.getElementById(msgId).textContent = "Chức năng đăng nhập đang bị Bypass.";
     bypassLogin(`#${document.getElementById(loginViewId).parentElement.id}`);
 }
 
 
-// Hàm Theo dõi chung
 function trackStatus(taskId, statusOutId, galleryOutId) {
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
@@ -156,7 +179,6 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 }
 
 
-// Hàm Chạy Task chung
 async function runWorkflowTask(config, viewIds) {
     const { 
         imageUploadId, 
@@ -164,7 +186,6 @@ async function runWorkflowTask(config, viewIds) {
         galleryOutId 
     } = viewIds;
 
-    // LẤY TÀI KHOẢN VÀ MẬT KHẨU TỪ BIẾN TẠM THỜI
     const username = TEMP_USERNAME;
     const password = TEMP_PASSWORD;
 
@@ -175,8 +196,7 @@ async function runWorkflowTask(config, viewIds) {
     const statusOut = document.getElementById(statusOutId);
     
     if (!imgFile) return alert("Vui lòng chọn ảnh!");
-    if (!username || !password) return alert("Vui lòng thiết lập TEMP_USERNAME và TEMP_PASSWORD trong script.js");
-
+    if (!username || !password || username === "your_test_username") return alert("Lỗi cấu hình: Vui lòng thiết lập TEST_USERNAME và TEST_PASSWORD trong script.js");
 
     statusOut.textContent = "Đang upload ảnh...";
 
