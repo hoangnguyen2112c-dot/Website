@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <style>
         /* Thêm CSS cơ bản cho giao diện API */
-        #restoration-app {
+        #restoration-app, #upscale-app {
             max-width: 800px;
             margin: 20px auto;
             padding: 20px;
@@ -16,7 +16,7 @@
             background-color: #2a2a2a;
             color: white;
         }
-        #restoration-app input, #restoration-app select, #restoration-app button {
+        #restoration-app input, #restoration-app button, #upscale-app input, #upscale-app button, #upscale-app select {
             display: block;
             width: 100%;
             padding: 10px;
@@ -26,21 +26,25 @@
             background-color: #3e3e3e;
             color: white;
         }
-        #restoration-app button {
+        #restoration-app button, #upscale-app button {
             background-color: #007bff;
             cursor: pointer;
         }
-        #gallery-output img {
+        #gallery-output img, #upscale-gallery-output img {
             max-width: 100%;
             height: auto;
             border: 1px solid #555;
             margin-top: 10px;
         }
-        #login-msg, #credits-out, #status-out {
+        #login-msg, #credits-out, #status-out, #upscale-login-msg, #upscale-credits-out, #upscale-status-out {
             padding: 10px;
             margin-top: 10px;
             background-color: #1e1e1e;
             border-radius: 4px;
+        }
+        /* Đảm bảo chỉ một view được hiện thị tại một thời điểm */
+        .main-content > div:not(#landing-view) {
+            display: none;
         }
     </style>
 </head>
@@ -53,7 +57,8 @@
         <nav class="sidebar">
             <a href="#" id="sidebar-restore-link" class="active">Phục Hồi Ảnh</a>
             <a href="#">In Ấn Tranh Ảnh</a>
-            <a href="#">Liên Hệ</a> </nav>
+            <a href="#">Liên Hệ</a>
+        </nav>
 
         <main class="main-content">
             <div id="landing-view">
@@ -72,41 +77,66 @@
                         <div class="tile-info">
                             <h3>2. Nâng cấp (Upscale)</h3>
                             <p>Tăng độ phân giải ảnh (ví dụ: x2, x4) mà vẫn giữ được chất lượng và chi tiết sắc nét.</p>
-                            <button>Bắt đầu Upscale</button>
+                            <button id="show-upscale-ui-btn">Bắt đầu Upscale</button>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div id="restoration-app" style="display:none;"> 
+            <div id="restoration-app"> 
                 <h2>Phục Hồi Ảnh AI</h2>
+                <p><a href="#" class="back-to-landing"> Quay lại</a></p>
                 <hr>
 
-                <div id="login-view">
+                <div id="restore-login-view">
                     <h4>🔒 Đăng nhập để sử dụng</h4>
-                    <input type="text" id="username" placeholder="Tài khoản...">
-                    <input type="password" id="password" placeholder="Mật khẩu...">
-                    <button id="login-btn">Đăng Nhập</button>
-                    <p id="login-msg" style="color: yellow;"></p>
+                    <input type="text" id="restore-username" placeholder="Tài khoản...">
+                    <input type="password" id="restore-password" placeholder="Mật khẩu...">
+                    <button id="restore-login-btn">Đăng Nhập</button>
+                    <p id="restore-login-msg" style="color: yellow;"></p>
                 </div>
 
-                <div id="main-view" style="display:none;">
-                    <p id="credits-out" style="color: lightgreen;">Lượt gen ảnh còn lại: ...</p>
+                <div id="restore-main-view" style="display:none;">
+                    <p id="restore-credits-out" style="color: lightgreen;">Lượt gen ảnh còn lại: ...</p>
                     
-                    <h4>⚙️ Cấu hình phục chế (API)</h4>
-                    <select id="preset-select">
-                        <option value="Phục chế Thường (ID 1984)">Phục chế Thường (ID 1984)</option>
-                        <option value="Upscale (ID 1981)">Upscale (ID 1981)</option>
-                    </select>
+                    <h4>⚙️ Cấu hình phục chế (ID 1984)</h4>
+                    
+                    <input type="file" id="restore-image-upload" accept="image/*">
+                    <input type="text" id="restore-prompt-input" value="restore old photo, high quality" placeholder="Ghi chú (Prompt)">
+                    <input type="number" id="restore-strength-input" min="0" max="10" step="0.1" value="4.0" placeholder="Độ mạnh (Strength)">
 
-                    <input type="file" id="image-upload" accept="image/*">
-                    <input type="text" id="prompt-input" value="restore old photo, high quality" placeholder="Ghi chú (Prompt)">
-                    <input type="number" id="strength-input" min="0" max="10" step="0.1" value="4.0" placeholder="Độ mạnh (Strength)">
+                    <button id="restore-run-btn">🔥 BẮT ĐẦU (Trừ 1 lượt)</button>
 
-                    <button id="run-btn">🔥 BẮT ĐẦU (Trừ 1 lượt)</button>
+                    <h4 id="restore-status-out">Trạng thái xử lý: Đang chờ...</h4>
+                    <div id="restore-gallery-output" style="text-align: center;">
+                        </div>
+                </div>
+            </div>
+            
+            <div id="upscale-app"> 
+                <h2>Nâng Cấp Ảnh (Upscale) AI</h2>
+                <p><a href="#" class="back-to-landing"> Quay lại</a></p>
+                <hr>
 
-                    <h4 id="status-out">Trạng thái xử lý: Đang chờ...</h4>
-                    <div id="gallery-output" style="text-align: center;">
+                <div id="upscale-login-view">
+                    <h4>🔒 Đăng nhập để sử dụng</h4>
+                    <input type="text" id="upscale-username" placeholder="Tài khoản...">
+                    <input type="password" id="upscale-password" placeholder="Mật khẩu...">
+                    <button id="upscale-login-btn">Đăng Nhập</button>
+                    <p id="upscale-login-msg" style="color: yellow;"></p>
+                </div>
+
+                <div id="upscale-main-view" style="display:none;">
+                    <p id="upscale-credits-out" style="color: lightgreen;">Lượt gen ảnh còn lại: ...</p>
+                    
+                    <h4>⚙️ Cấu hình nâng cấp (ID 1981)</h4>
+                    
+                    <input type="file" id="upscale-image-upload" accept="image/*">
+                    <input type="text" id="upscale-prompt-input" value="high quality upscale" placeholder="Ghi chú (Prompt)">
+                    <button id="upscale-run-btn">🔥 BẮT ĐẦU (Trừ 1 lượt)</button>
+
+                    <h4 id="upscale-status-out">Trạng thái xử lý: Đang chờ...</h4>
+                    <div id="upscale-gallery-output" style="text-align: center;">
                         </div>
                 </div>
             </div>
