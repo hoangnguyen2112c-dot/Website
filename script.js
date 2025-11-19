@@ -1,15 +1,11 @@
 // =========================================================
-// CẤU HÌNH CHUNG & BYPASS LOGIN
+// CẤU HÌNH CHUNG
 // =========================================================
 const API_GATEWAY_URL = "https://runninghub-api-gateway.onrender.com";
 
-// ⚠️ CẤU HÌNH API KEY CỦA BẠN (Sử dụng API Key thay cho mật khẩu)
-const TEST_USERNAME = "API_User_Key"; // Tên người dùng chung cho authentication bằng key
-const TEST_PASSWORD = "69ba75ff24924a69a7944c6d8118e0be"; // KHÓA API CỦA BẠN: RUNNINGHUB_API_KEY
-
-let TEMP_USERNAME = TEST_USERNAME; 
-let TEMP_PASSWORD = TEST_PASSWORD;
-let TEMP_CREDITS = 99; 
+// ⚠️ KHÓA API CỦA BẠN (Sử dụng trực tiếp cho xác thực)
+const API_KEY = "69ba75ff24924a69a7944c6d8118e0be"; 
+const TEMP_CREDITS = 99; 
 
 // Cấu hình ID Workflow cho từng tính năng
 const RESTORATION_CONFIG = {
@@ -46,7 +42,7 @@ function setupImagePreview(inputId, previewId) {
                 
                 reader.onload = function(event) {
                     previewElement.src = event.target.result;
-                    previewElement.style.display = 'block'; // Hiện ảnh
+                    previewElement.style.display = 'block'; 
                 };
                 
                 reader.readAsDataURL(file); 
@@ -60,32 +56,17 @@ function setupImagePreview(inputId, previewId) {
 
 
 // =========================================================
-// LOGIC CHUYỂN ĐỔI GIAO DIỆN VÀ BYPASS LOGIN
+// LOGIC CHUYỂN ĐỔI GIAO DIỆN
 // =========================================================
-
-function bypassLogin(appId) {
-    const loginViewId = appId === '#restoration-app' ? 'restore-login-view' : 'upscale-login-view';
-    const mainViewId = appId === '#restoration-app' ? 'restore-main-view' : 'upscale-main-view';
-    const creditsOutId = appId === '#restoration-app' ? 'restore-credits-out' : 'upscale-credits-out';
-
-    const loginView = document.getElementById(loginViewId);
-    const mainView = document.getElementById(mainViewId);
-    const creditsOut = document.getElementById(creditsOutId);
-
-    if (loginView && mainView && creditsOut) {
-        // ẨN LOGIN VIEW
-        loginView.style.display = 'none'; 
-        // HIỆN MAIN VIEW
-        mainView.style.display = 'block'; 
-        creditsOut.textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
-    }
-}
-
 
 document.addEventListener('DOMContentLoaded', () => {
     const landingView = document.getElementById('landing-view');
     const restorationApp = document.getElementById('restoration-app');
     const upscaleApp = document.getElementById('upscale-app');
+    
+    // Gán credits (tạm thời) cho giao diện chính
+    document.getElementById('restore-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
+    document.getElementById('upscale-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
     
     const switchView = (targetApp) => {
         landingView.style.display = 'none';
@@ -93,12 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
         upscaleApp.style.display = 'none';
         
         targetApp.style.display = 'block';
-        
-        if (targetApp.id === 'restoration-app') {
-            bypassLogin('#restoration-app');
-        } else if (targetApp.id === 'upscale-app') {
-            bypassLogin('#upscale-app');
-        }
     };
 
     document.getElementById('show-restoration-ui-btn').addEventListener('click', () => {
@@ -126,11 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
-// HÀM LOGIN ĐÃ BỊ LOẠI BỎ (chỉ còn lại hàm placeholder)
-async function apiLogin(usernameId, passwordId, msgId, loginViewId, mainViewId, creditsOutId) {
-    document.getElementById(msgId).textContent = "Đã bỏ qua màn hình đăng nhập.";
-    bypassLogin(`#${document.getElementById(loginViewId).parentElement.id}`);
-}
+// Không cần hàm apiLogin vì đã loại bỏ cơ chế ID/Pass.
 
 
 function trackStatus(taskId, statusOutId, galleryOutId) {
@@ -143,7 +114,11 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 
     intervalId = setInterval(async () => {
         try {
-            const res = await fetch(`${API_GATEWAY_URL}/api/v1/task/status/${taskId}`);
+            const res = await fetch(`${API_GATEWAY_URL}/api/v1/task/status/${taskId}`, {
+                method: 'POST', // API Gateway có thể yêu cầu POST ngay cả khi query status
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ taskId, apiKey: API_KEY }) // Gửi API Key trong payload
+            });
             const data = await res.json();
             const status = data.data || data;
 
@@ -151,7 +126,11 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
                 clearInterval(intervalId);
                 statusOut.textContent = "✅ SUCCESS (Hoàn thành)";
                 
-                const outputRes = await fetch(`${API_GATEWAY_URL}/api/v1/task/outputs/${taskId}`);
+                const outputRes = await fetch(`${API_GATEWAY_URL}/api/v1/task/outputs/${taskId}`, {
+                     method: 'POST', // API Gateway có thể yêu cầu POST
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ taskId, apiKey: API_KEY }) // Gửi API Key trong payload
+                });
                 const outputData = await outputRes.json();
 
                 if (outputData && outputData.data && Array.isArray(outputData.data)) {
@@ -189,9 +168,6 @@ async function runWorkflowTask(config, viewIds) {
         galleryOutId 
     } = viewIds;
 
-    const username = TEMP_USERNAME;
-    const password = TEMP_PASSWORD; // Đây là API Key của bạn
-
     const prompt = document.getElementById(promptInputId).value;
     const strengthInput = document.getElementById(strengthInputId);
     const strength = strengthInput ? strengthInput.value : null;
@@ -199,15 +175,17 @@ async function runWorkflowTask(config, viewIds) {
     const statusOut = document.getElementById(statusOutId);
     
     if (!imgFile) return alert("Vui lòng chọn ảnh!");
-    if (!username || !password || password === "your_test_password") return alert("Lỗi cấu hình: Vui lòng kiểm tra TEMP_PASSWORD (API Key) trong script.js");
+    if (!API_KEY) return alert("Lỗi cấu hình: Vui lòng thiết lập API_KEY trong script.js");
 
     statusOut.textContent = "Đang upload ảnh...";
 
     try {
-        // --- BƯỚC 1: UPLOAD ẢNH (Gửi API Key qua header/payload tùy thuộc API Gateway) ---
+        // --- BƯỚC 1: UPLOAD ẢNH (Sử dụng API Key trong FormData nếu cần) ---
         const formData = new FormData();
         formData.append('file', imgFile, imgFile.name);
         formData.append('fileType', 'image');
+        // Thử thêm API Key vào FormData (Đôi khi API Gateway cần nó ở đây)
+        formData.append('apiKey', API_KEY); 
         
         const upRes = await fetch(`${API_GATEWAY_URL}/api/v1/upload`, {
             method: 'POST',
@@ -224,8 +202,8 @@ async function runWorkflowTask(config, viewIds) {
         statusOut.textContent = "Đang xử lý (Sẽ trừ 1 lượt)...";
 
         const payload = {
-            username, 
-            password, // Truyền API Key vào trường password
+            // API Key sẽ được thêm vào Payload chính
+            "apiKey": API_KEY,
             "workflow_id": config.workflow_id,
             "prompt_id": config.prompt_id,
             "image_id": config.image_id,
@@ -244,7 +222,8 @@ async function runWorkflowTask(config, viewIds) {
 
         const data = await res.json();
         if (!res.ok) {
-             throw new Error(`Lỗi tạo task: ${data.detail || res.statusText}`);
+             // Sử dụng message lỗi chính xác từ API Gateway
+             throw new Error(`Lỗi tạo task: ${data.message || data.detail || res.statusText}`);
         }
         
         const taskId = data.taskId;
@@ -261,36 +240,18 @@ async function runWorkflowTask(config, viewIds) {
 // =========================================================
 
 const RESTORE_VIEW_IDS = {
-    usernameId: 'restore-username', passwordId: 'restore-password', msgId: 'restore-login-msg',
-    loginViewId: 'restore-login-view', mainViewId: 'restore-main-view', creditsOutId: 'restore-credits-out',
     imageUploadId: 'restore-image-upload', promptInputId: 'restore-prompt-input', strengthInputId: 'restore-strength-input',
     statusOutId: 'restore-status-out', galleryOutId: 'restore-gallery-output'
 };
-
-document.getElementById('restore-login-btn').addEventListener('click', () => {
-    apiLogin(
-        RESTORE_VIEW_IDS.usernameId, RESTORE_VIEW_IDS.passwordId, RESTORE_VIEW_IDS.msgId, 
-        RESTORE_VIEW_IDS.loginViewId, RESTORE_VIEW_IDS.mainViewId, RESTORE_VIEW_IDS.creditsOutId
-    );
-});
 
 document.getElementById('restore-run-btn').addEventListener('click', () => {
     runWorkflowTask(RESTORATION_CONFIG, RESTORE_VIEW_IDS);
 });
 
 const UPSCALE_VIEW_IDS = {
-    usernameId: 'upscale-username', passwordId: 'upscale-password', msgId: 'upscale-login-msg',
-    loginViewId: 'upscale-login-view', mainViewId: 'upscale-main-view', creditsOutId: 'upscale-credits-out',
     imageUploadId: 'upscale-image-upload', promptInputId: 'upscale-prompt-input', strengthInputId: 'upscale-strength-input',
     statusOutId: 'upscale-status-out', galleryOutId: 'upscale-gallery-output'
 };
-
-document.getElementById('upscale-login-btn').addEventListener('click', () => {
-    apiLogin(
-        UPSCALE_VIEW_IDS.usernameId, UPSCALE_VIEW_IDS.passwordId, UPSCALE_VIEW_IDS.msgId, 
-        UPSCALE_VIEW_IDS.loginViewId, UPSCALE_VIEW_IDS.mainViewId, UPSCALE_VIEW_IDS.creditsOutId
-    );
-});
 
 document.getElementById('upscale-run-btn').addEventListener('click', () => {
     runWorkflowTask(UPSCALE_CONFIG, UPSCALE_VIEW_IDS);
