@@ -16,14 +16,49 @@ const UPSCALE_CONFIG = {
     workflow_id: "1981382064639492097",
     prompt_id: "45",
     image_id: "59",
-    // Upscale không dùng strength_id theo cấu hình cũ
     strength_id: null, 
     gpu_mode: "Standard (24G)"
 };
 
+// Khai báo biến toàn cục để lưu trữ tài khoản/mật khẩu tạm thời
+let TEMP_USERNAME = ""; 
+let TEMP_PASSWORD = "";
+let TEMP_CREDITS = 0;
+
+
 // =========================================================
-// LOGIC CHUYỂN ĐỔI GIAO DIỆN
+// LOGIC CHUYỂN ĐỔI GIAO DIỆN VÀ BYPASS LOGIN
 // =========================================================
+
+// Hàm bypass Login (TẠM THỜI)
+function bypassLogin(appId) {
+    // ⚠️ ĐẶT TÀI KHOẢN VÀ MẬT KHẨU CỨNG CHO MỤC ĐÍCH TEST
+    const TEST_USERNAME = "test_user_api"; // THAY BẰNG USERNAME HỢP LỆ CỦA BẠN
+    const TEST_PASSWORD = "test_password"; // THAY BẰNG MẬT KHẨU HỢP LỆ CỦA BẠN
+
+    // Lưu credentials tạm thời
+    TEMP_USERNAME = TEST_USERNAME;
+    TEMP_PASSWORD = TEST_PASSWORD;
+    TEMP_CREDITS = 99; // Giả sử còn 99 lượt test
+
+    // Xác định ID View dựa trên appId
+    const loginViewId = appId === '#restoration-app' ? 'restore-login-view' : 'upscale-login-view';
+    const mainViewId = appId === '#restoration-app' ? 'restore-main-view' : 'upscale-main-view';
+    const creditsOutId = appId === '#restoration-app' ? 'restore-credits-out' : 'upscale-credits-out';
+
+    // Ẩn Login, Hiện Main View
+    const loginView = document.getElementById(loginViewId);
+    const mainView = document.getElementById(mainViewId);
+    const creditsOut = document.getElementById(creditsOutId);
+
+    if (loginView && mainView && creditsOut) {
+        loginView.style.display = 'none';
+        mainView.style.display = 'block';
+        creditsOut.textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
+    }
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     const landingView = document.getElementById('landing-view');
     const restorationApp = document.getElementById('restoration-app');
@@ -36,6 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
         upscaleApp.style.display = 'none';
         
         targetApp.style.display = 'block';
+        
+        // --- CHẠY BYPASS LOGIN KHI CHUYỂN SANG GIAO DIỆN THỰC THI ---
+        if (targetApp.id === 'restoration-app') {
+            bypassLogin('#restoration-app');
+        } else if (targetApp.id === 'upscale-app') {
+            bypassLogin('#upscale-app');
+        }
     };
 
     // Kích hoạt giao diện Restoration
@@ -59,42 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 // =========================================================
-// HÀM CHUNG CHO API (LOGIN, UPLOAD, TRACK)
+// LOGIC API
 // =========================================================
 
-// Hàm Login chung
+// Hàm Login chung (Tạm thời vô hiệu hóa)
 async function apiLogin(usernameId, passwordId, msgId, loginViewId, mainViewId, creditsOutId) {
-    const username = document.getElementById(usernameId).value;
-    const password = document.getElementById(passwordId).value;
-    const msgOut = document.getElementById(msgId);
-
-    msgOut.textContent = "Đang đăng nhập...";
-
-    try {
-        const res = await fetch(`${API_GATEWAY_URL}/api/v1/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            const credits = data.credits || 0;
-            msgOut.textContent = `✅ Xin chào ${username}! Bạn còn: ${credits} lượt.`;
-            document.getElementById(loginViewId).style.display = 'none';
-            document.getElementById(mainViewId).style.display = 'block';
-            document.getElementById(creditsOutId).textContent = `Lượt gen ảnh còn lại: ${credits}`;
-            return { username, password };
-        } else {
-            msgOut.textContent = `❌ ${data.message || 'Lỗi đăng nhập'}`;
-        }
-    } catch (e) {
-        msgOut.textContent = `Lỗi Server: ${e.message}`;
-    }
-    return null;
+    // Không cần thực thi logic API Login khi dùng Bypass
+    document.getElementById(msgId).textContent = "Chức năng đăng nhập đang bị Bypass.";
+    bypassLogin(`#${document.getElementById(loginViewId).parentElement.id}`);
 }
 
-// Hàm Theo dõi chung
+// Hàm Theo dõi chung (Không thay đổi)
 function trackStatus(taskId, statusOutId, galleryOutId) {
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
@@ -104,6 +121,7 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
     if (intervalId) clearInterval(intervalId);
 
     intervalId = setInterval(async () => {
+        // ... (Giữ nguyên logic kiểm tra trạng thái)
         try {
             const res = await fetch(`${API_GATEWAY_URL}/api/v1/task/status/${taskId}`);
             const data = await res.json();
@@ -144,16 +162,18 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 }
 
 
-// Hàm Chạy Task chung
+// Hàm Chạy Task chung (Đã cập nhật để dùng TEMP_USERNAME/PASSWORD)
 async function runWorkflowTask(config, viewIds) {
     const { 
-        usernameId, passwordId, imageUploadId, 
+        imageUploadId, 
         promptInputId, strengthInputId, statusOutId, 
         galleryOutId 
     } = viewIds;
 
-    const username = document.getElementById(usernameId).value;
-    const password = document.getElementById(passwordId).value;
+    // LẤY TÀI KHOẢN VÀ MẬT KHẨU TỪ BIẾN TẠM THỜI
+    const username = TEMP_USERNAME;
+    const password = TEMP_PASSWORD;
+
     const prompt = document.getElementById(promptInputId).value;
     const strengthInput = document.getElementById(strengthInputId);
     const strength = strengthInput ? strengthInput.value : null;
@@ -166,6 +186,7 @@ async function runWorkflowTask(config, viewIds) {
 
     try {
         // --- BƯỚC 1: UPLOAD ẢNH ---
+        // ... (Giữ nguyên logic Upload)
         const formData = new FormData();
         formData.append('file', imgFile, imgFile.name);
         formData.append('fileType', 'image');
@@ -185,8 +206,8 @@ async function runWorkflowTask(config, viewIds) {
         statusOut.textContent = "Đang xử lý (Sẽ trừ 1 lượt)...";
 
         const payload = {
-            username,
-            password,
+            username, // Dùng TEMP_USERNAME
+            password, // Dùng TEMP_PASSWORD
             "workflow_id": config.workflow_id,
             "prompt_id": config.prompt_id,
             "image_id": config.image_id,
@@ -218,22 +239,14 @@ async function runWorkflowTask(config, viewIds) {
 
 
 // =========================================================
-// KÍCH HOẠT LOGIC CHO RESTORATION
+// KÍCH HOẠT LOGIC CHO RESTORATION VÀ UPSCALE
 // =========================================================
 
 const RESTORE_VIEW_IDS = {
-    usernameId: 'restore-username',
-    passwordId: 'restore-password',
-    msgId: 'restore-login-msg',
-    loginViewId: 'restore-login-view',
-    mainViewId: 'restore-main-view',
-    creditsOutId: 'restore-credits-out',
-    
-    imageUploadId: 'restore-image-upload',
-    promptInputId: 'restore-prompt-input',
-    strengthInputId: 'restore-strength-input',
-    statusOutId: 'restore-status-out',
-    galleryOutId: 'restore-gallery-output'
+    usernameId: 'restore-username', passwordId: 'restore-password', msgId: 'restore-login-msg',
+    loginViewId: 'restore-login-view', mainViewId: 'restore-main-view', creditsOutId: 'restore-credits-out',
+    imageUploadId: 'restore-image-upload', promptInputId: 'restore-prompt-input', strengthInputId: 'restore-strength-input',
+    statusOutId: 'restore-status-out', galleryOutId: 'restore-gallery-output'
 };
 
 document.getElementById('restore-login-btn').addEventListener('click', () => {
@@ -247,23 +260,11 @@ document.getElementById('restore-run-btn').addEventListener('click', () => {
     runWorkflowTask(RESTORATION_CONFIG, RESTORE_VIEW_IDS);
 });
 
-// =========================================================
-// KÍCH HOẠT LOGIC CHO UPSCALE
-// =========================================================
-
 const UPSCALE_VIEW_IDS = {
-    usernameId: 'upscale-username',
-    passwordId: 'upscale-password',
-    msgId: 'upscale-login-msg',
-    loginViewId: 'upscale-login-view',
-    mainViewId: 'upscale-main-view',
-    creditsOutId: 'upscale-credits-out',
-    
-    imageUploadId: 'upscale-image-upload',
-    promptInputId: 'upscale-prompt-input',
-    strengthInputId: 'upscale-strength-input', // Giữ lại ID dù không dùng
-    statusOutId: 'upscale-status-out',
-    galleryOutId: 'upscale-gallery-output'
+    usernameId: 'upscale-username', passwordId: 'upscale-password', msgId: 'upscale-login-msg',
+    loginViewId: 'upscale-login-view', mainViewId: 'upscale-main-view', creditsOutId: 'upscale-credits-out',
+    imageUploadId: 'upscale-image-upload', promptInputId: 'upscale-prompt-input', strengthInputId: 'upscale-strength-input',
+    statusOutId: 'upscale-status-out', galleryOutId: 'upscale-gallery-output'
 };
 
 document.getElementById('upscale-login-btn').addEventListener('click', () => {
