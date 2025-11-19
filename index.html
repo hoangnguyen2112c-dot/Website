@@ -71,30 +71,115 @@
         }
         #input-module label { display: block; margin-bottom: 5px; color: #ccc; }
         
-        /* Styling Output */
-        #restore-gallery-output img, #upscale-gallery-output img {
-            max-width: 100%;
+        /* Styling Output Gallery */
+        #restore-gallery-output, #upscale-gallery-output {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* Container cho từng ảnh kết quả (Bao gồm Watermark ảo) */
+        .result-image-container {
+            position: relative;
+            cursor: pointer;
+            width: 45%; /* Chia 2 cột trong output module */
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+        }
+
+        .result-image-container img {
+            display: block;
+            width: 100%;
             height: auto;
-            border: 1px solid #555;
-            margin-top: 10px;
-            border-radius: 4px;
         }
-        #restore-credits-out, #upscale-credits-out {
-            padding: 10px;
-            margin-top: 10px;
-            background-color: #1e1e1e;
-            border-radius: 4px;
+        
+        /* SIMULATED WATERMARK OVERLAY */
+        .result-image-container::after {
+            content: "RYAN NGUYEN PREVIEW";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-20deg);
+            color: rgba(255, 255, 255, 0.3); /* Màu trắng mờ */
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none; /* Cho phép click xuyên qua */
         }
+
         .main-content > div:not(#landing-view) {
             display: none; 
         }
         
-        /* Style cho Image Preview */
+        /* Style cho Image Preview Input */
         .image-preview-container {
             border: 1px dashed #555;
             margin-bottom: 10px;
             border-radius: 4px;
             padding: 5px;
+        }
+
+        /* --- MODAL (LIGHTBOX) CSS --- */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            width: 80%;
+            max-width: 900px;
+            padding-top: 50px;
+        }
+
+        .modal-content img {
+            width: 100%;
+            height: auto;
+        }
+        
+        .modal-buttons {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .modal-buttons button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border: none;
+            border-radius: 4px;
+            margin: 0 10px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -214,6 +299,20 @@
         </main>
     </div>
 
+    <div id="imageModal" class="modal">
+      <span class="close">&times;</span>
+      <div class="modal-content">
+        <img id="modalImage">
+        <div class="modal-buttons">
+          <button id="downloadButton">⬇️ Thanh toán & Tải ảnh Sạch</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+        // Thêm biến global để lưu Task ID đang được xem
+        window.currentModalTaskId = null;
+    </script>
     <script src="script.js"></script> 
 </body>
 </html>
