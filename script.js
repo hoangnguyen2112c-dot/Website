@@ -1,32 +1,38 @@
 // =========================================================
-// CẤU HÌNH CHUNG
+// CẤU HÌNH API VÀ WORKFLOW (DỰA TRÊN CODE PYTHON THÀNH CÔNG)
 // =========================================================
-const API_GATEWAY_URL = "https://runninghub-api-gateway.onrender.com";
 
 // ⚠️ KHÓA API CỦA BẠN (Sử dụng trực tiếp cho xác thực)
 const API_KEY = "69ba75ff24924a69a7944c6d8118e0be"; 
-const TEMP_CREDITS = 99; 
+const TEMP_CREDITS = 99; // Tạm thời hiển thị
 
-// Cấu hình ID Workflow cho từng tính năng
+const RUNNINGHUB_URLS = {
+    "create": "https://www.runninghub.cn/task/openapi/create",
+    "status": "https://www.runninghub.ai/task/openapi/status",
+    "outputs": "https://www.runninghub.ai/task/openapi/outputs",
+    "upload": "https://www.runninghub.ai/task/openapi/upload",
+    "account_status": "https://www.runninghub.ai/uc/openapi/accountStatus",
+    // Lưu ý: api-app/run bị bỏ qua vì chúng ta dùng 'create' (Standard Workflow)
+};
+
+// Cấu hình ID Workflow và NODE ID
 const RESTORATION_CONFIG = {
     workflow_id: "1984294242724036609",
-    prompt_id: "416",
-    image_id: "284",
-    strength_id: "134",
-    gpu_mode: "Standard (24G)"
+    // Map các trường input đến Node ID và Field Name chuẩn của ComfyUI
+    prompt_node_id: "416", // Giả sử Field Name là "text"
+    image_node_id: "284",  // Giả sử Field Name là "image"
+    strength_node_id: "134", // Giả sử Field Name là "guidance" (từ code Python)
 };
 
 const UPSCALE_CONFIG = {
     workflow_id: "1981382064639492097",
-    prompt_id: "45",
-    image_id: "59",
-    strength_id: null, 
-    gpu_mode: "Standard (24G)"
+    prompt_node_id: "45",
+    image_node_id: "59",
+    strength_node_id: null, // Upscale không dùng Strength
 };
 
-
 // =========================================================
-// HÀM XEM TRƯỚC ẢNH
+// HÀM XEM TRƯỚC ẢNH (Giữ nguyên)
 // =========================================================
 
 function setupImagePreview(inputId, previewId) {
@@ -64,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const restorationApp = document.getElementById('restoration-app');
     const upscaleApp = document.getElementById('upscale-app');
     
-    // Gán credits (tạm thời) cho giao diện chính
+    // Gán credits (tạm thời)
     document.getElementById('restore-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
     document.getElementById('upscale-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
     
@@ -98,12 +104,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 // =========================================================
-// LOGIC API CHUNG (UPLOAD, TRACK, RUN)
+// HÀM API TRỰC TIẾP
 // =========================================================
 
-// Không cần hàm apiLogin vì đã loại bỏ cơ chế ID/Pass.
+/**
+ * BƯỚC 1: Tải ảnh lên RunningHub và trả về fileName.
+ */
+async function uploadImageToRunningHub(imgFile) {
+    const statusOut = document.getElementById('restore-status-out') || document.getElementById('upscale-status-out');
+    
+    const formData = new FormData();
+    formData.append('apiKey', API_KEY); // Gửi API Key trong FormData
+    formData.append('file', imgFile, imgFile.name);
+    formData.append('fileType', 'image'); 
 
+    statusOut.textContent = "Đang upload ảnh lên RunningHub...";
 
+    try {
+        const upRes = await fetch(RUNNINGHUB_URLS["upload"], {
+            method: 'POST',
+            body: formData 
+        });
+        
+        const resData = await upRes.json();
+        
+        if (resData.code !== 0) {
+            throw new Error(`Upload thất bại: ${resData.msg || "Lỗi không xác định."}`);
+        }
+        
+        // Trả về fileName (ví dụ: api/bf431957f5980e7cd0748d46715254987353e9290d11ffef3cc3f326186f5c38.png)
+        return resData.data.fileName; 
+
+    } catch (e) {
+        statusOut.textContent = `Lỗi Upload: ${e.message}`;
+        throw new Error(e.message);
+    }
+}
+
+/**
+ * BƯỚC 3: Theo dõi trạng thái task.
+ */
 function trackStatus(taskId, statusOutId, galleryOutId) {
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
@@ -114,26 +154,28 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 
     intervalId = setInterval(async () => {
         try {
-            const res = await fetch(`${API_GATEWAY_URL}/api/v1/task/status/${taskId}`, {
-                method: 'POST', // API Gateway có thể yêu cầu POST ngay cả khi query status
+            // Theo dõi trạng thái
+            const statusRes = await fetch(RUNNINGHUB_URLS["status"], {
+                method: 'POST', 
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ taskId, apiKey: API_KEY }) // Gửi API Key trong payload
+                body: JSON.stringify({ taskId, apiKey: API_KEY })
             });
-            const data = await res.json();
-            const status = data.data || data;
+            const statusData = await statusRes.json();
+            const status = statusData.data || statusData.msg;
 
             if (status === "SUCCESS") {
                 clearInterval(intervalId);
                 statusOut.textContent = "✅ SUCCESS (Hoàn thành)";
                 
-                const outputRes = await fetch(`${API_GATEWAY_URL}/api/v1/task/outputs/${taskId}`, {
-                     method: 'POST', // API Gateway có thể yêu cầu POST
+                // Lấy kết quả
+                const outputRes = await fetch(RUNNINGHUB_URLS["outputs"], {
+                     method: 'POST', 
                      headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ taskId, apiKey: API_KEY }) // Gửi API Key trong payload
+                     body: JSON.stringify({ taskId, apiKey: API_KEY })
                 });
                 const outputData = await outputRes.json();
 
-                if (outputData && outputData.data && Array.isArray(outputData.data)) {
+                if (outputData.code === 0 && Array.isArray(outputData.data)) {
                     galleryOut.innerHTML = '';
                     outputData.data.forEach(item => {
                         if (item.fileType === 'png' && item.fileUrl) {
@@ -144,7 +186,10 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
                             galleryOut.appendChild(img);
                         }
                     });
+                } else {
+                    statusOut.textContent = `Lỗi lấy kết quả: ${outputData.msg}`;
                 }
+
             } else if (status === "FAILED") {
                 clearInterval(intervalId);
                 statusOut.textContent = `❌ FAILED (Thất bại)`;
@@ -161,6 +206,9 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 }
 
 
+/**
+ * BƯỚC 2: Tạo task (Advanced Workflow Execution).
+ */
 async function runWorkflowTask(config, viewIds) {
     const { 
         imageUploadId, 
@@ -175,58 +223,52 @@ async function runWorkflowTask(config, viewIds) {
     const statusOut = document.getElementById(statusOutId);
     
     if (!imgFile) return alert("Vui lòng chọn ảnh!");
-    if (!API_KEY) return alert("Lỗi cấu hình: Vui lòng thiết lập API_KEY trong script.js");
-
-    statusOut.textContent = "Đang upload ảnh...";
+    if (!API_KEY) return alert("Lỗi cấu hình: Vui lòng thiết lập API_KEY.");
 
     try {
-        // --- BƯỚC 1: UPLOAD ẢNH (Sử dụng API Key trong FormData nếu cần) ---
-        const formData = new FormData();
-        formData.append('file', imgFile, imgFile.name);
-        formData.append('fileType', 'image');
-        // Thử thêm API Key vào FormData (Đôi khi API Gateway cần nó ở đây)
-        formData.append('apiKey', API_KEY); 
-        
-        const upRes = await fetch(`${API_GATEWAY_URL}/api/v1/upload`, {
-            method: 'POST',
-            body: formData 
-        });
-        
-        const upData = await upRes.json();
-        if (!upRes.ok || !upData.fileName) {
-            throw new Error(`Upload lỗi: ${upData.detail || upRes.statusText}`);
-        }
-        const remotePath = upData.fileName;
+        // 1. UPLOAD ẢNH & LẤY ĐƯỜNG DẪN FILE NAME
+        const remoteFileName = await uploadImageToRunningHub(imgFile);
 
-        // --- BƯỚC 2: TẠO TASK ---
-        statusOut.textContent = "Đang xử lý (Sẽ trừ 1 lượt)...";
+        // 2. XÂY DỰNG PAYLOAD nodeInfoList
+        const nodeInfoList = [];
+        
+        // A. Thêm Prompt Text (Node ID: config.prompt_node_id, Field Name: "text")
+        if (prompt && config.prompt_node_id) {
+            nodeInfoList.push({ "nodeId": config.prompt_node_id, "fieldName": "text", "fieldValue": prompt });
+        }
+        
+        // B. Thêm Strength (Node ID: config.strength_node_id, Field Name: "guidance")
+        if (strength && config.strength_node_id) {
+            nodeInfoList.push({ "nodeId": config.strength_node_id, "fieldName": "guidance", "fieldValue": parseFloat(strength) });
+        }
+        
+        // C. Thêm Image Path (Node ID: config.image_node_id, Field Name: "image")
+        if (remoteFileName && config.image_node_id) {
+            nodeInfoList.push({ "nodeId": config.image_node_id, "fieldName": "image", "fieldValue": remoteFileName });
+        }
+
+
+        // 3. TẠO TASK CHÍNH
+        statusOut.textContent = "Đang xử lý (Tạo task)...";
 
         const payload = {
-            // API Key sẽ được thêm vào Payload chính
-            "apiKey": API_KEY,
-            "workflow_id": config.workflow_id,
-            "prompt_id": config.prompt_id,
-            "image_id": config.image_id,
-            "strength_id": config.strength_id,
-            "gpu_mode": config.gpu_mode,
-            "prompt_text": prompt,
-            "img_path": remotePath,
-            "strength": config.strength_id ? parseFloat(strength) : null
+            "apiKey": API_KEY, 
+            "workflowId": config.workflow_id,
+            "nodeInfoList": nodeInfoList
         };
 
-        const res = await fetch(`${API_GATEWAY_URL}/api/v1/workflow/create`, {
+        const res = await fetch(RUNNINGHUB_URLS["create"], {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
         const data = await res.json();
-        if (!res.ok) {
-             // Sử dụng message lỗi chính xác từ API Gateway
-             throw new Error(`Lỗi tạo task: ${data.message || data.detail || res.statusText}`);
+        if (data.code !== 0) {
+             throw new Error(`Lỗi tạo task: ${data.msg || res.statusText}`);
         }
         
-        const taskId = data.taskId;
+        const taskId = data.data.taskId;
         trackStatus(taskId, statusOutId, galleryOutId);
 
     } catch (e) {
