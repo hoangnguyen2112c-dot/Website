@@ -12,23 +12,21 @@ const RUNNINGHUB_URLS = {
     "outputs": "https://www.runninghub.ai/task/openapi/outputs",
     "upload": "https://www.runninghub.ai/task/openapi/upload",
     "account_status": "https://www.runninghub.ai/uc/openapi/accountStatus",
-    // Lưu ý: api-app/run bị bỏ qua vì chúng ta dùng 'create' (Standard Workflow)
 };
 
 // Cấu hình ID Workflow và NODE ID
 const RESTORATION_CONFIG = {
     workflow_id: "1984294242724036609",
-    // Map các trường input đến Node ID và Field Name chuẩn của ComfyUI
-    prompt_node_id: "416", // Giả sử Field Name là "text"
-    image_node_id: "284",  // Giả sử Field Name là "image"
-    strength_node_id: "134", // Giả sử Field Name là "guidance" (từ code Python)
+    prompt_node_id: "416", 
+    image_node_id: "284",  
+    strength_node_id: "134", 
 };
 
 const UPSCALE_CONFIG = {
     workflow_id: "1981382064639492097",
     prompt_node_id: "45",
     image_node_id: "59",
-    strength_node_id: null, // Upscale không dùng Strength
+    strength_node_id: null, 
 };
 
 // =========================================================
@@ -108,17 +106,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // =========================================================
 
 /**
- * BƯỚC 1: Tải ảnh lên RunningHub và trả về fileName.
+ * BƯỚC 1: Tải ảnh lên hệ thống và trả về fileName.
  */
 async function uploadImageToRunningHub(imgFile) {
     const statusOut = document.getElementById('restore-status-out') || document.getElementById('upscale-status-out');
     
     const formData = new FormData();
-    formData.append('apiKey', API_KEY); // Gửi API Key trong FormData
+    formData.append('apiKey', API_KEY); 
     formData.append('file', imgFile, imgFile.name);
     formData.append('fileType', 'image'); 
 
-    statusOut.textContent = "Đang upload ảnh lên RunningHub...";
+    // ⛔️ Đã loại bỏ tên RunningHub
+    statusOut.textContent = "Đang tải ảnh lên hệ thống...";
 
     try {
         const upRes = await fetch(RUNNINGHUB_URLS["upload"], {
@@ -129,14 +128,13 @@ async function uploadImageToRunningHub(imgFile) {
         const resData = await upRes.json();
         
         if (resData.code !== 0) {
-            throw new Error(`Upload thất bại: ${resData.msg || "Lỗi không xác định."}`);
+            throw new Error(`Tải ảnh thất bại: ${resData.msg || "Lỗi không xác định."}`);
         }
         
-        // Trả về fileName (ví dụ: api/bf431957f5980e7cd0748d46715254987353e9290d11ffef3cc3f326186f5c38.png)
         return resData.data.fileName; 
 
     } catch (e) {
-        statusOut.textContent = `Lỗi Upload: ${e.message}`;
+        statusOut.textContent = `Lỗi Tải ảnh: ${e.message}`;
         throw new Error(e.message);
     }
 }
@@ -194,6 +192,7 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
                 clearInterval(intervalId);
                 statusOut.textContent = `❌ FAILED (Thất bại)`;
             } else {
+                // Giữ nguyên status từ API (QUEUED, RUNNING)
                 statusOut.textContent = `Trạng thái: ${status}`;
             }
         } catch (e) {
@@ -232,24 +231,25 @@ async function runWorkflowTask(config, viewIds) {
         // 2. XÂY DỰNG PAYLOAD nodeInfoList
         const nodeInfoList = [];
         
-        // A. Thêm Prompt Text (Node ID: config.prompt_node_id, Field Name: "text")
+        // A. Thêm Prompt Text
         if (prompt && config.prompt_node_id) {
             nodeInfoList.push({ "nodeId": config.prompt_node_id, "fieldName": "text", "fieldValue": prompt });
         }
         
-        // B. Thêm Strength (Node ID: config.strength_node_id, Field Name: "guidance")
+        // B. Thêm Strength
         if (strength && config.strength_node_id) {
             nodeInfoList.push({ "nodeId": config.strength_node_id, "fieldName": "guidance", "fieldValue": parseFloat(strength) });
         }
         
-        // C. Thêm Image Path (Node ID: config.image_node_id, Field Name: "image")
+        // C. Thêm Image Path
         if (remoteFileName && config.image_node_id) {
             nodeInfoList.push({ "nodeId": config.image_node_id, "fieldName": "image", "fieldValue": remoteFileName });
         }
 
 
         // 3. TẠO TASK CHÍNH
-        statusOut.textContent = "Đang xử lý (Tạo task)...";
+        // ⛔️ Đã thay thế "Tạo task" bằng "khởi tạo tác vụ xử lý"
+        statusOut.textContent = "Đang khởi tạo tác vụ xử lý...";
 
         const payload = {
             "apiKey": API_KEY, 
@@ -265,7 +265,8 @@ async function runWorkflowTask(config, viewIds) {
 
         const data = await res.json();
         if (data.code !== 0) {
-             throw new Error(`Lỗi tạo task: ${data.msg || res.statusText}`);
+             // ⛔️ Đã thay thế "Lỗi tạo task" bằng "Lỗi khởi tạo tác vụ"
+             throw new Error(`Lỗi khởi tạo tác vụ: ${data.msg || res.statusText}`);
         }
         
         const taskId = data.data.taskId;
@@ -278,7 +279,7 @@ async function runWorkflowTask(config, viewIds) {
 
 
 // =========================================================
-// KÍCH HOẠT EVENTS
+// KÍCH HOẠT EVENTS (Giữ nguyên)
 // =========================================================
 
 const RESTORE_VIEW_IDS = {
