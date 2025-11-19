@@ -3,9 +3,9 @@
 // =========================================================
 const API_GATEWAY_URL = "https://runninghub-api-gateway.onrender.com";
 
-// ⚠️ CẤU HÌNH TEST: Thay thế bằng tài khoản và mật khẩu hợp lệ của bạn!
-const TEST_USERNAME = "your_test_username"; 
-const TEST_PASSWORD = "your_test_password"; 
+// ⚠️ CẤU HÌNH API KEY CỦA BẠN (Sử dụng API Key thay cho mật khẩu)
+const TEST_USERNAME = "API_User_Key"; // Tên người dùng chung cho authentication bằng key
+const TEST_PASSWORD = "69ba75ff24924a69a7944c6d8118e0be"; // KHÓA API CỦA BẠN
 
 let TEMP_USERNAME = TEST_USERNAME; 
 let TEMP_PASSWORD = TEST_PASSWORD;
@@ -49,9 +49,9 @@ function setupImagePreview(inputId, previewId) {
                     previewElement.style.display = 'block'; // Hiện ảnh
                 };
                 
-                reader.readAsDataURL(file); // Đọc file dưới dạng Data URL
+                reader.readAsDataURL(file); 
             } else {
-                previewElement.style.display = 'none'; // Ẩn nếu không có file
+                previewElement.style.display = 'none'; 
                 previewElement.src = '#';
             }
         });
