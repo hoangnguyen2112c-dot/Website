@@ -1,20 +1,20 @@
 // =========================================================
-// CẤU HÌNH API VÀ WORKFLOW (DỰA TRÊN CODE PYTHON THÀNH CÔNG)
+// CẤU HÌNH CHUNG & API
 // =========================================================
-
-// ⚠️ KHÓA API CỦA BẠN (Sử dụng trực tiếp cho xác thực)
 const API_KEY = "69ba75ff24924a69a7944c6d8118e0be"; 
 const TEMP_CREDITS = 99; // Tạm thời hiển thị
 
 const RUNNINGHUB_URLS = {
-    "create": "https://www.runninghub.cn/task/openapi/create",
+    "create": "https://www.runninghub.cn/task/openapi/create", 
     "status": "https://www.runninghub.ai/task/openapi/status",
     "outputs": "https://www.runninghub.ai/task/openapi/outputs",
     "upload": "https://www.runninghub.ai/task/openapi/upload",
-    "account_status": "https://www.runninghub.ai/uc/openapi/accountStatus",
+    
+    // ⚠️ ENDPOINT MỚI CHO THANH TOÁN (CẦN CÓ TRÊN BACKEND CỦA BẠN)
+    "fulfill": "https://www.runninghub.ai/task/openapi/fulfill_payment" 
 };
 
-// Cấu hình ID Workflow và NODE ID
+// Cấu hình ID Workflow cho từng tính năng
 const RESTORATION_CONFIG = {
     workflow_id: "1984294242724036609",
     prompt_node_id: "416", 
@@ -29,8 +29,77 @@ const UPSCALE_CONFIG = {
     strength_node_id: null, 
 };
 
+
 // =========================================================
-// HÀM XEM TRƯỚC ẢNH (Giữ nguyên)
+// HÀM MODAL (ZOOM VÀ DOWNLOAD)
+// =========================================================
+
+const modal = document.getElementById("imageModal");
+const modalImg = document.getElementById("modalImage");
+const downloadBtn = document.getElementById("downloadButton"); 
+const spanClose = document.getElementsByClassName("close")[0];
+
+// Đóng modal
+spanClose.onclick = function() { modal.style.display = "none"; }
+window.onclick = function(event) { if (event.target == modal) { modal.style.display = "none"; } }
+
+function openModal(imgUrl, taskId) {
+  modal.style.display = "block";
+  modalImg.src = imgUrl;
+  
+  // LƯU TASK ID CHO BƯỚC THANH TOÁN
+  window.currentModalTaskId = taskId; 
+}
+
+// XỬ LÝ DOWNLOAD: TRỪ PHÍ VÀ LẤY ẢNH SẠCH
+downloadBtn.onclick = function() {
+    if (!window.currentModalTaskId) return alert("Không tìm thấy ID tác vụ.");
+    
+    // Khởi tạo quá trình trừ phí
+    fulfillAndDownload(window.currentModalTaskId);
+    modal.style.display = "none"; 
+};
+
+/**
+ * Gọi API Backend để xử lý thanh toán và trả về ảnh sạch.
+ */
+async function fulfillAndDownload(taskId) {
+    const statusOut = document.getElementById('restore-status-out') || document.getElementById('upscale-status-out');
+    statusOut.textContent = `Đang xử lý thanh toán và tải file sạch cho Task ID: ${taskId}...`;
+
+    try {
+        // ⚠️ GỌI ENDPOINT FULFILLMENT MỚI
+        const res = await fetch(RUNNINGHUB_URLS["fulfill"], {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey: API_KEY, taskId: taskId })
+        });
+        
+        const data = await res.json();
+        
+        if (data.code === 0 && data.data && data.data.fileUrl) {
+            const finalUrl = data.data.fileUrl;
+            statusOut.textContent = "✅ Thanh toán thành công! Bắt đầu tải ảnh...";
+            
+            // Trigger download
+            const tempLink = document.createElement('a');
+            tempLink.href = finalUrl;
+            tempLink.download = `ryan_nguyen_fulfillment_${taskId}.png`;
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            document.body.removeChild(tempLink);
+
+        } else {
+             throw new Error(data.msg || "API Fulfillment thất bại.");
+        }
+    } catch (e) {
+        statusOut.textContent = `❌ Lỗi Thanh toán: ${e.message}`;
+    }
+}
+
+
+// =========================================================
+// HÀM XEM TRƯỚC ẢNH & LOGIC CHUYỂN ĐỔI GIAO DIỆN
 // =========================================================
 
 function setupImagePreview(inputId, previewId) {
@@ -59,16 +128,11 @@ function setupImagePreview(inputId, previewId) {
 }
 
 
-// =========================================================
-// LOGIC CHUYỂN ĐỔI GIAO DIỆN
-// =========================================================
-
 document.addEventListener('DOMContentLoaded', () => {
     const landingView = document.getElementById('landing-view');
     const restorationApp = document.getElementById('restoration-app');
     const upscaleApp = document.getElementById('upscale-app');
     
-    // Gán credits (tạm thời)
     document.getElementById('restore-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
     document.getElementById('upscale-credits-out').textContent = `Lượt gen ảnh còn lại (TEST): ${TEMP_CREDITS}`;
     
@@ -95,53 +159,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- KÍCH HOẠT PREVIEW ẢNH ---
     setupImagePreview('restore-image-upload', 'restore-image-preview');
     setupImagePreview('upscale-image-upload', 'upscale-image-preview');
 });
 
 
 // =========================================================
-// HÀM API TRỰC TIẾP
+// LOGIC API CHUNG (UPLOAD, TRACK, RUN)
 // =========================================================
 
-/**
- * BƯỚC 1: Tải ảnh lên hệ thống và trả về fileName.
- */
-async function uploadImageToRunningHub(imgFile) {
-    const statusOut = document.getElementById('restore-status-out') || document.getElementById('upscale-status-out');
-    
-    const formData = new FormData();
-    formData.append('apiKey', API_KEY); 
-    formData.append('file', imgFile, imgFile.name);
-    formData.append('fileType', 'image'); 
-
-    // ⛔️ Đã loại bỏ tên RunningHub
-    statusOut.textContent = "Đang tải ảnh lên hệ thống...";
-
-    try {
-        const upRes = await fetch(RUNNINGHUB_URLS["upload"], {
-            method: 'POST',
-            body: formData 
-        });
-        
-        const resData = await upRes.json();
-        
-        if (resData.code !== 0) {
-            throw new Error(`Tải ảnh thất bại: ${resData.msg || "Lỗi không xác định."}`);
-        }
-        
-        return resData.data.fileName; 
-
-    } catch (e) {
-        statusOut.textContent = `Lỗi Tải ảnh: ${e.message}`;
-        throw new Error(e.message);
-    }
-}
-
-/**
- * BƯỚC 3: Theo dõi trạng thái task.
- */
 function trackStatus(taskId, statusOutId, galleryOutId) {
     const galleryOut = document.getElementById(galleryOutId);
     const statusOut = document.getElementById(statusOutId);
@@ -163,7 +189,8 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 
             if (status === "SUCCESS") {
                 clearInterval(intervalId);
-                statusOut.textContent = "✅ SUCCESS (Hoàn thành)";
+                // ⚠️ Thông báo Preview sẵn sàng
+                statusOut.textContent = "✅ SUCCESS (Hoàn thành) - Ảnh Preview sẵn sàng.";
                 
                 // Lấy kết quả
                 const outputRes = await fetch(RUNNINGHUB_URLS["outputs"], {
@@ -177,11 +204,19 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
                     galleryOut.innerHTML = '';
                     outputData.data.forEach(item => {
                         if (item.fileType === 'png' && item.fileUrl) {
+                            
+                            const container = document.createElement('div');
+                            container.className = 'result-image-container'; 
+                            
                             const img = document.createElement('img');
                             img.src = item.fileUrl;
-                            img.style.maxWidth = '300px'; 
-                            img.style.margin = '10px';
-                            galleryOut.appendChild(img);
+                            img.alt = "Ảnh kết quả";
+                            
+                            // ⚠️ TRUYỀN taskId vào openModal
+                            container.onclick = () => openModal(item.fileUrl, taskId);
+
+                            container.appendChild(img);
+                            galleryOut.appendChild(container);
                         }
                     });
                 } else {
@@ -192,7 +227,6 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
                 clearInterval(intervalId);
                 statusOut.textContent = `❌ FAILED (Thất bại)`;
             } else {
-                // Giữ nguyên status từ API (QUEUED, RUNNING)
                 statusOut.textContent = `Trạng thái: ${status}`;
             }
         } catch (e) {
@@ -205,9 +239,6 @@ function trackStatus(taskId, statusOutId, galleryOutId) {
 }
 
 
-/**
- * BƯỚC 2: Tạo task (Advanced Workflow Execution).
- */
 async function runWorkflowTask(config, viewIds) {
     const { 
         imageUploadId, 
@@ -231,24 +262,19 @@ async function runWorkflowTask(config, viewIds) {
         // 2. XÂY DỰNG PAYLOAD nodeInfoList
         const nodeInfoList = [];
         
-        // A. Thêm Prompt Text
         if (prompt && config.prompt_node_id) {
             nodeInfoList.push({ "nodeId": config.prompt_node_id, "fieldName": "text", "fieldValue": prompt });
         }
         
-        // B. Thêm Strength
         if (strength && config.strength_node_id) {
             nodeInfoList.push({ "nodeId": config.strength_node_id, "fieldName": "guidance", "fieldValue": parseFloat(strength) });
         }
         
-        // C. Thêm Image Path
         if (remoteFileName && config.image_node_id) {
             nodeInfoList.push({ "nodeId": config.image_node_id, "fieldName": "image", "fieldValue": remoteFileName });
         }
 
-
         // 3. TẠO TASK CHÍNH
-        // ⛔️ Đã thay thế "Tạo task" bằng "khởi tạo tác vụ xử lý"
         statusOut.textContent = "Đang khởi tạo tác vụ xử lý...";
 
         const payload = {
@@ -265,7 +291,6 @@ async function runWorkflowTask(config, viewIds) {
 
         const data = await res.json();
         if (data.code !== 0) {
-             // ⛔️ Đã thay thế "Lỗi tạo task" bằng "Lỗi khởi tạo tác vụ"
              throw new Error(`Lỗi khởi tạo tác vụ: ${data.msg || res.statusText}`);
         }
         
@@ -278,8 +303,38 @@ async function runWorkflowTask(config, viewIds) {
 }
 
 
+async function uploadImageToRunningHub(imgFile) {
+    const statusOut = document.getElementById('restore-status-out') || document.getElementById('upscale-status-out');
+    
+    const formData = new FormData();
+    formData.append('apiKey', API_KEY); 
+    formData.append('file', imgFile, imgFile.name);
+    formData.append('fileType', 'image'); 
+
+    statusOut.textContent = "Đang tải ảnh lên hệ thống...";
+
+    try {
+        const upRes = await fetch(RUNNINGHUB_URLS["upload"], {
+            method: 'POST',
+            body: formData 
+        });
+        
+        const resData = await upRes.json();
+        
+        if (resData.code !== 0) {
+            throw new Error(`Tải ảnh thất bại: ${resData.msg || "Lỗi không xác định."}`);
+        }
+        
+        return resData.data.fileName; 
+
+    } catch (e) {
+        statusOut.textContent = `Lỗi Tải ảnh: ${e.message}`;
+        throw new Error(e.message);
+    }
+}
+
 // =========================================================
-// KÍCH HOẠT EVENTS (Giữ nguyên)
+// KÍCH HOẠT EVENTS
 // =========================================================
 
 const RESTORE_VIEW_IDS = {
